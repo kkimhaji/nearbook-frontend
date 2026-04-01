@@ -1,7 +1,7 @@
-// lib/core/router/app_router.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:nearbook_frontend/shared/socket/socket_client.dart';
 import '../../features/auth/view/login_screen.dart';
 import '../../features/auth/view/register_screen.dart';
 import '../../features/nearby/view/nearby_screen.dart';
@@ -27,15 +27,46 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   );
 });
 
-class MainShell extends StatelessWidget {
+class MainShell extends ConsumerStatefulWidget {
   final Widget child;
   const MainShell({super.key, required this.child});
 
   @override
+  ConsumerState<MainShell> createState() => _MainShellState();
+}
+
+class _MainShellState extends ConsumerState<MainShell> {
+  int _selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    SocketClient.connect();
+  }
+
+  @override
+  void dispose() {
+    SocketClient.disconnect();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: child,
+      body: widget.child,
       bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: (index) {
+          setState(() => _selectedIndex = index);
+          switch (index) {
+            case 0:
+              context.go('/nearby');
+            case 1:
+              context.go('/friends');
+            case 2:
+              context.go('/guestbook');
+          }
+        },
         destinations: const [
           NavigationDestination(icon: Icon(Icons.radar), label: '주변'),
           NavigationDestination(icon: Icon(Icons.people), label: '친구'),
