@@ -15,6 +15,7 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
   void initState() {
     super.initState();
     final notifier = ref.read(nearbyProvider.notifier);
+    notifier.initBleToken();
     notifier.listenBleResult();
     notifier.startScan();
   }
