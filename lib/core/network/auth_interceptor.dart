@@ -16,7 +16,28 @@ class AuthInterceptor extends Interceptor {
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    // 401 시 로그아웃 처리는 추후 auth provider에서 처리
-    handler.next(err);
+    final response = err.response;
+
+    if (response == null) {
+      handler.reject(
+        DioException(
+          requestOptions: err.requestOptions,
+          error: '서버에 연결할 수 없습니다.',
+        ),
+      );
+      return;
+    }
+
+    final message = response.data is Map
+        ? response.data['message'] as String? ?? '알 수 없는 오류가 발생했습니다.'
+        : '알 수 없는 오류가 발생했습니다.';
+
+    handler.reject(
+      DioException(
+        requestOptions: err.requestOptions,
+        response: response,
+        error: message,
+      ),
+    );
   }
 }
