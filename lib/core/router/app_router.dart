@@ -7,6 +7,7 @@ import '../../features/auth/view/register_screen.dart';
 import '../../features/nearby/view/nearby_screen.dart';
 import '../../features/guestbook/view/guestbook_screen.dart';
 import '../../features/friend/view/friend_screen.dart';
+import '../../features/auth/provider/auth_provider.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -53,6 +54,18 @@ class _MainShellState extends ConsumerState<MainShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await ref.read(authProvider.notifier).logout();
+              if (!mounted) return;
+              context.go('/login');
+            },
+          ),
+        ],
+      ),
       body: widget.child,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
