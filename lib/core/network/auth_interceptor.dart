@@ -28,6 +28,11 @@ class AuthInterceptor extends Interceptor {
       return;
     }
 
+    // 401 시 토큰 삭제
+    if (response.statusCode == 401) {
+      SecureStorage.deleteToken();
+    }
+
     final message = response.data is Map
         ? response.data['message'] as String? ?? '알 수 없는 오류가 발생했습니다.'
         : '알 수 없는 오류가 발생했습니다.';
