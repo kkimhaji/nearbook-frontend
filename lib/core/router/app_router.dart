@@ -1,25 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:nearbook_frontend/core/storage/secure_storage.dart';
 import 'package:nearbook_frontend/shared/socket/socket_client.dart';
+import '../../core/storage/secure_storage.dart';
+import '../../features/auth/provider/auth_provider.dart';
 import '../../features/auth/view/login_screen.dart';
 import '../../features/auth/view/register_screen.dart';
 import '../../features/nearby/view/nearby_screen.dart';
 import '../../features/guestbook/view/guestbook_screen.dart';
 import '../../features/friend/view/friend_screen.dart';
-import '../../features/auth/provider/auth_provider.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
+  // auth 상태 변경 시 라우터 갱신을 위한 listenable
+  final authNotifier = ref.watch(authProvider.notifier);
+
   return GoRouter(
     initialLocation: '/login',
+    refreshListenable: _AuthChangeNotifier(ref),
     redirect: (context, state) async {
       final token = await SecureStorage.getToken();
-      final isLoginRoute = state.matchedLocation == '/login' ||
+      final isAuthRoute = state.matchedLocation == '/login' ||
           state.matchedLocation == '/register';
 
-      if (token == null && !isLoginRoute) return '/login';
-      if (token != null && isLoginRoute) return '/nearby';
+      if (token == null && !isAuthRoute) return '/login';
+      if (token != null && isAuthRoute) return '/nearby';
       return null;
     },
     routes: [
@@ -31,12 +35,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/nearby', builder: (_, __) => const NearbyScreen()),
           GoRoute(path: '/friends', builder: (_, __) => const FriendScreen()),
           GoRoute(
-              path: '/guestbook', builder: (_, __) => const GuestbookScreen()),
+            path: '/guestbook',
+            builder: (_, __) => const GuestbookScreen(),
+          ),
         ],
       ),
     ],
   );
 });
+
+// auth 상태 변경을 GoRouter에 전달하는 브릿지
+class _AuthChangeNotifier extends ChangeNotifier {
+  _AuthChangeNotifier(Ref ref) {
+    ref.listen(authProvider, (previous, next) {
+      if (previous?.status != next.status) {
+        notifyListeners();
+      }
+    });
+  }
+}
 
 class MainShell extends ConsumerStatefulWidget {
   final Widget child;
