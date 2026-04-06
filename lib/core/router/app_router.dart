@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:nearbook_frontend/core/storage/secure_storage.dart';
 import 'package:nearbook_frontend/shared/socket/socket_client.dart';
 import '../../features/auth/view/login_screen.dart';
 import '../../features/auth/view/register_screen.dart';
@@ -12,6 +13,15 @@ import '../../features/auth/provider/auth_provider.dart';
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/login',
+    redirect: (context, state) async {
+      final token = await SecureStorage.getToken();
+      final isLoginRoute = state.matchedLocation == '/login' ||
+          state.matchedLocation == '/register';
+
+      if (token == null && !isLoginRoute) return '/login';
+      if (token != null && isLoginRoute) return '/nearby';
+      return null;
+    },
     routes: [
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
