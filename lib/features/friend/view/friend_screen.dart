@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../provider/friend_provider.dart';
+import '../../../core/network/dio_exception_handler.dart';
 
 class FriendScreen extends ConsumerStatefulWidget {
   const FriendScreen({super.key});
@@ -62,7 +63,7 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('오류: $e')),
+        SnackBar(content: Text(DioExceptionHandler.getMessage(e))),
       );
     }
   }

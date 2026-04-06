@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/auth_repository.dart';
+import '../../../core/network/dio_exception_handler.dart';
 
 enum AuthStatus { initial, loading, authenticated, unauthenticated, error }
 
@@ -30,10 +31,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       await _repository.login(username: username, password: password);
       state = state.copyWith(status: AuthStatus.authenticated);
-    } on Exception catch (e) {
+    } catch (e) {
       state = state.copyWith(
         status: AuthStatus.error,
-        errorMessage: e.toString(),
+        errorMessage: DioExceptionHandler.getMessage(e),
       );
     }
   }
@@ -53,10 +54,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
         password: password,
       );
       state = state.copyWith(status: AuthStatus.authenticated);
-    } on Exception catch (e) {
+    } catch (e) {
       state = state.copyWith(
         status: AuthStatus.error,
-        errorMessage: e.toString(),
+        errorMessage: DioExceptionHandler.getMessage(e),
       );
     }
   }

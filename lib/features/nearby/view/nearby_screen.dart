@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../provider/nearby_provider.dart';
 import '../../guestbook/data/guestbook_repository.dart';
+import '../../../core/network/dio_exception_handler.dart';
 
 class NearbyScreen extends ConsumerStatefulWidget {
   const NearbyScreen({super.key});
@@ -36,7 +37,7 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('오류: $e')),
+        SnackBar(content: Text(DioExceptionHandler.getMessage(e))),
       );
     }
   }
