@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart';
 import '../../../core/network/dio_client.dart';
-import '../../../shared/models/user.dart';
 
 class FriendRepository {
   final Dio _dio = DioClient.instance;
