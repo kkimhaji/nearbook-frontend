@@ -5,38 +5,45 @@ import '../../../core/network/dio_client.dart';
 import '../../../shared/socket/socket_client.dart';
 import '../../../shared/socket/socket_events.dart';
 import '../../../shared/models/user.dart';
+import '../../../shared/ble/ble_peripheral_service.dart';
 
-class NearbyNotifier extends StateNotifier<List<UserModel>> {
-  NearbyNotifier() : super([]);
+const String kBleServiceUuid = '12345678-1234-1234-1234-123456789abc';
+
+class NearbyNotifier extends StateNotifier<NearbyState> {
+  NearbyNotifier() : super(const NearbyState());
 
   Timer? _tokenRefreshTimer;
-  String? _currentBleToken;
   final Set<String> _detectedTokens = {};
 
-  // BLE 토큰 발급 및 주기적 갱신
+  // BLE 토큰 발급 + 광고 시작
   Future<void> initBleToken() async {
-    await _fetchAndStoreBleToken();
+    await _fetchAndAdvertise();
 
-    // 9분마다 갱신 (만료 10분 기준)
+    // 9분마다 토큰 갱신 및 광고 재시작
     _tokenRefreshTimer = Timer.periodic(
       const Duration(minutes: 9),
-      (_) => _fetchAndStoreBleToken(),
+      (_) => _fetchAndAdvertise(),
     );
   }
 
-  Future<void> _fetchAndStoreBleToken() async {
+  Future<void> _fetchAndAdvertise() async {
     try {
       final response = await DioClient.instance.post('/users/ble-token');
-      _currentBleToken = response.data['token'] as String;
+      final token = response.data['token'] as String;
+
+      // 새 토큰으로 BLE 광고 시작
+      await BlePeripheralService.startAdvertising(token);
     } catch (e) {
       return;
     }
   }
 
+  // BLE 스캔 시작
   Future<void> startScan() async {
     final isSupported = await FlutterBluePlus.isSupported;
     if (!isSupported) return;
 
+    state = state.copyWith(isScanning: true);
     _detectedTokens.clear();
 
     await FlutterBluePlus.startScan(
@@ -45,12 +52,20 @@ class NearbyNotifier extends StateNotifier<List<UserModel>> {
     );
 
     FlutterBluePlus.scanResults.listen(_onScanResult);
+
+    // 스캔 완료 후 상태 업데이트
+    FlutterBluePlus.isScanning.listen((scanning) {
+      if (!scanning) state = state.copyWith(isScanning: false);
+    });
   }
 
+  // BLE 스캔 중지
   Future<void> stopScan() async {
     await FlutterBluePlus.stopScan();
+    await BlePeripheralService.stopAdvertising();
     _tokenRefreshTimer?.cancel();
     _detectedTokens.clear();
+    state = state.copyWith(isScanning: false);
   }
 
   void _onScanResult(List<ScanResult> results) {
@@ -81,19 +96,39 @@ class NearbyNotifier extends StateNotifier<List<UserModel>> {
       final users = (data['detectedUsers'] as List)
           .map((u) => UserModel.fromJson(u as Map<String, dynamic>))
           .toList();
-      state = users;
+      state = state.copyWith(nearbyUsers: users);
     });
   }
 
   @override
   void dispose() {
     _tokenRefreshTimer?.cancel();
+    BlePeripheralService.stopAdvertising();
     super.dispose();
   }
 }
 
-const String kBleServiceUuid = '12345678-1234-1234-1234-123456789abc';
+// 상태 클래스 분리
+class NearbyState {
+  final List<UserModel> nearbyUsers;
+  final bool isScanning;
 
-final nearbyProvider = StateNotifierProvider<NearbyNotifier, List<UserModel>>(
+  const NearbyState({
+    this.nearbyUsers = const [],
+    this.isScanning = false,
+  });
+
+  NearbyState copyWith({
+    List<UserModel>? nearbyUsers,
+    bool? isScanning,
+  }) {
+    return NearbyState(
+      nearbyUsers: nearbyUsers ?? this.nearbyUsers,
+      isScanning: isScanning ?? this.isScanning,
+    );
+  }
+}
+
+final nearbyProvider = StateNotifierProvider<NearbyNotifier, NearbyState>(
   (ref) => NearbyNotifier(),
 );
