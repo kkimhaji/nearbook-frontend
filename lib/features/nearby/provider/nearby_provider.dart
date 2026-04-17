@@ -13,9 +13,10 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
   NearbyNotifier() : super(const NearbyState());
 
   Timer? _tokenRefreshTimer;
+  StreamSubscription? _scanResultsSub;
+  StreamSubscription? _isScanningSub;
   final Set<String> _detectedTokens = {};
 
-  // BLE 토큰 발급 + 광고 시작
   Future<void> initBleToken() async {
     await _fetchAndAdvertise();
 
@@ -43,6 +44,9 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
     final isSupported = await FlutterBluePlus.isSupported;
     if (!isSupported) return;
 
+    await _scanResultsSub?.cancel();
+    await _isScanningSub?.cancel();
+
     state = state.copyWith(isScanning: true);
     _detectedTokens.clear();
 
@@ -51,11 +55,12 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
       timeout: const Duration(seconds: 10),
     );
 
-    FlutterBluePlus.scanResults.listen(_onScanResult);
+    _scanResultsSub = FlutterBluePlus.scanResults.listen(_onScanResult);
 
-    // 스캔 완료 후 상태 업데이트
-    FlutterBluePlus.isScanning.listen((scanning) {
-      if (!scanning) state = state.copyWith(isScanning: false);
+    _isScanningSub = FlutterBluePlus.isScanning.listen((scanning) {
+      if (!scanning) {
+        state = state.copyWith(isScanning: false);
+      }
     });
   }
 
@@ -66,6 +71,15 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
     _tokenRefreshTimer?.cancel();
     _detectedTokens.clear();
     state = state.copyWith(isScanning: false);
+  }
+
+  @override
+  void dispose() {
+    _tokenRefreshTimer?.cancel();
+    _scanResultsSub?.cancel();
+    _isScanningSub?.cancel();
+    BlePeripheralService.stopAdvertising();
+    super.dispose();
   }
 
   void _onScanResult(List<ScanResult> results) {
@@ -85,26 +99,19 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
 
     if (newTokens.isEmpty) return;
 
-    SocketClient.instance.emit(
+    SocketClient.instance?.emit(
       SocketEvents.bleDetected,
       {'deviceTokens': newTokens},
     );
   }
 
   void listenBleResult() {
-    SocketClient.instance.on(SocketEvents.bleDetectedResult, (data) {
+    SocketClient.instance?.on(SocketEvents.bleDetectedResult, (data) {
       final users = (data['detectedUsers'] as List)
           .map((u) => UserModel.fromJson(u as Map<String, dynamic>))
           .toList();
       state = state.copyWith(nearbyUsers: users);
     });
-  }
-
-  @override
-  void dispose() {
-    _tokenRefreshTimer?.cancel();
-    BlePeripheralService.stopAdvertising();
-    super.dispose();
   }
 }
 
