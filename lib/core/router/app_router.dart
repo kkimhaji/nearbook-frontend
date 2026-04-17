@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:nearbook_frontend/features/friend/provider/friend_provider.dart';
+import 'package:nearbook_frontend/features/guestbook/provider/guestbook_provider.dart';
 import 'package:nearbook_frontend/shared/socket/socket_client.dart';
 import '../../core/storage/secure_storage.dart';
 import '../../features/auth/provider/auth_provider.dart';
@@ -69,13 +71,21 @@ class _MainShellState extends ConsumerState<MainShell> {
   @override
   void initState() {
     super.initState();
-    SocketClient.connect();
+    _initSocket();
   }
 
   @override
   void dispose() {
     SocketClient.disconnect();
     super.dispose();
+  }
+
+  Future<void> _initSocket() async {
+    await SocketClient.connect();
+
+    // 소켓 연결 완료 후 리스너 등록
+    ref.read(friendProvider.notifier).initSocketListeners();
+    ref.read(guestbookProvider.notifier).initSocketListeners();
   }
 
   @override

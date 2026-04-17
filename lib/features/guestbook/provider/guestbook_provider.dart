@@ -42,34 +42,32 @@ class GuestbookNotifier extends StateNotifier<GuestbookRequestState> {
   }
 
   void _listenSocketEvents() {
-    // 방명록 요청 수신
-    SocketClient.instance.on(SocketEvents.guestbookRequestReceived, (data) {
-      final map = data as Map<String, dynamic>;
-      state = state.copyWith(
-        requestId: map['requestId'] as int,
-        owner: map['owner'] as Map<String, dynamic>,
-      );
-    });
+    SocketClient.instance
+      ?..on(SocketEvents.guestbookRequestReceived, (data) {
+        final map = data as Map<String, dynamic>;
+        state = state.copyWith(
+          requestId: map['requestId'] as int,
+          owner: map['owner'] as Map<String, dynamic>,
+        );
+      })
+      ..on(SocketEvents.guestbookTypingStart, (data) {
+        final map = data as Map<String, dynamic>;
+        final writer = map['writer'] as Map<String, dynamic>;
+        state = state.copyWith(
+          isTyping: true,
+          typingNickname: writer['nickname'] as String,
+        );
+      })
+      ..on(SocketEvents.guestbookTypingStop, (_) {
+        state = state.copyWith(isTyping: false, typingNickname: null);
+      })
+      ..on(SocketEvents.guestbookCompleted, (_) {
+        state = state.copyWith(isTyping: false, typingNickname: null);
+      });
+  }
 
-    // 타이핑 인디케이터 시작
-    SocketClient.instance.on(SocketEvents.guestbookTypingStart, (data) {
-      final map = data as Map<String, dynamic>;
-      final writer = map['writer'] as Map<String, dynamic>;
-      state = state.copyWith(
-        isTyping: true,
-        typingNickname: writer['nickname'] as String,
-      );
-    });
-
-    // 타이핑 인디케이터 종료
-    SocketClient.instance.on(SocketEvents.guestbookTypingStop, (_) {
-      state = state.copyWith(isTyping: false, typingNickname: null);
-    });
-
-    // 작성 완료
-    SocketClient.instance.on(SocketEvents.guestbookCompleted, (_) {
-      state = state.copyWith(isTyping: false, typingNickname: null);
-    });
+  void initSocketListeners() {
+    _listenSocketEvents();
   }
 
   Future<void> submitGuestbook(int requestId, String content) async {
@@ -83,14 +81,14 @@ class GuestbookNotifier extends StateNotifier<GuestbookRequestState> {
   }
 
   void sendTypingStart(String targetUserId, int requestId) {
-    SocketClient.instance.emit(SocketEvents.typingStart, {
+    SocketClient.instance?.emit(SocketEvents.typingStart, {
       'targetUserId': targetUserId,
       'requestId': requestId,
     });
   }
 
   void sendTypingStop(String targetUserId, int requestId) {
-    SocketClient.instance.emit(SocketEvents.typingStop, {
+    SocketClient.instance?.emit(SocketEvents.typingStop, {
       'targetUserId': targetUserId,
       'requestId': requestId,
     });

@@ -13,8 +13,13 @@ class FriendNotifier extends StateNotifier<List<UserModel>> {
 
   void _listenSocketEvents() {
     SocketClient.instance
-      ..on(SocketEvents.friendRequestReceived, (_) => fetchFriends())
+      ?..on(SocketEvents.friendRequestReceived, (_) => fetchFriends())
       ..on(SocketEvents.friendRequestAccepted, (_) => fetchFriends());
+  }
+
+// 소켓 연결 후 외부에서 호출할 수 있도록 public 메서드 추가
+  void initSocketListeners() {
+    _listenSocketEvents();
   }
 
   Future<void> fetchFriends() async {
