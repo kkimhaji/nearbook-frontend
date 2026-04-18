@@ -8,19 +8,19 @@ import '../../../shared/models/user.dart';
 import '../../../shared/ble/ble_peripheral_service.dart';
 
 const String kBleServiceUuid = '12345678-1234-1234-1234-123456789abc';
+final _tokenRegex = RegExp(r'^[0-9a-f]{8}$');
 
 class NearbyNotifier extends StateNotifier<NearbyState> {
   NearbyNotifier() : super(const NearbyState());
 
   Timer? _tokenRefreshTimer;
   StreamSubscription? _scanResultsSub;
-  StreamSubscription? _isScanningSub;
+  StreamSubscription? _isScanningSSub;
   final Set<String> _detectedTokens = {};
 
   Future<void> initBleToken() async {
     await _fetchAndAdvertise();
 
-    // 9분마다 토큰 갱신 및 광고 재시작
     _tokenRefreshTimer = Timer.periodic(
       const Duration(minutes: 9),
       (_) => _fetchAndAdvertise(),
@@ -31,8 +31,6 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
     try {
       final response = await DioClient.instance.post('/users/ble-token');
       final token = response.data['token'] as String;
-
-      // 새 토큰으로 BLE 광고 시작
       await BlePeripheralService.startAdvertising(token);
     } catch (e) {
       return;
@@ -41,12 +39,14 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
 
   // BLE 스캔 시작
   Future<void> startScan() async {
+    // 기존 구독 취소 후 재시작 (중복 리스너 방지)
+    await _scanResultsSub?.cancel();
+    await _isScanningSSub?.cancel();
+
     final isSupported = await FlutterBluePlus.isSupported;
     if (!isSupported) return;
 
-    await _scanResultsSub?.cancel();
-    await _isScanningSub?.cancel();
-
+    if (!mounted) return;
     state = state.copyWith(isScanning: true);
     _detectedTokens.clear();
 
@@ -57,44 +57,50 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
 
     _scanResultsSub = FlutterBluePlus.scanResults.listen(_onScanResult);
 
-    _isScanningSub = FlutterBluePlus.isScanning.listen((scanning) {
-      if (!scanning) {
+    _isScanningSSub = FlutterBluePlus.isScanning.listen((scanning) {
+      if (!scanning && mounted) {
         state = state.copyWith(isScanning: false);
       }
     });
   }
 
-  // BLE 스캔 중지
   Future<void> stopScan() async {
     await FlutterBluePlus.stopScan();
+    await _scanResultsSub?.cancel();
+    await _isScanningSSub?.cancel();
     await BlePeripheralService.stopAdvertising();
     _tokenRefreshTimer?.cancel();
     _detectedTokens.clear();
-    state = state.copyWith(isScanning: false);
-  }
-
-  @override
-  void dispose() {
-    _tokenRefreshTimer?.cancel();
-    _scanResultsSub?.cancel();
-    _isScanningSub?.cancel();
-    BlePeripheralService.stopAdvertising();
-    super.dispose();
+    if (mounted) state = state.copyWith(isScanning: false);
   }
 
   void _onScanResult(List<ScanResult> results) {
+    if (!mounted) return;
+
     final newTokens = <String>[];
 
     for (final result in results) {
+      // 1. localName에서 token 추출 (iOS/Android 공통)
+      final localName = result.advertisementData.localName;
+      if (localName != null &&
+          localName.isNotEmpty &&
+          _tokenRegex.hasMatch(localName) &&
+          !_detectedTokens.contains(localName)) {
+        _detectedTokens.add(localName);
+        newTokens.add(localName);
+        continue;
+      }
+
+      // 2. serviceData에서 token 추출 (Android 광고 → Android 스캔 fallback)
       final serviceData = result.advertisementData.serviceData;
       final tokenBytes = serviceData[Guid(kBleServiceUuid)];
-      if (tokenBytes == null) continue;
-
-      final token = String.fromCharCodes(tokenBytes);
-      if (_detectedTokens.contains(token)) continue;
-
-      _detectedTokens.add(token);
-      newTokens.add(token);
+      if (tokenBytes != null) {
+        final token = String.fromCharCodes(tokenBytes);
+        if (_tokenRegex.hasMatch(token) && !_detectedTokens.contains(token)) {
+          _detectedTokens.add(token);
+          newTokens.add(token);
+        }
+      }
     }
 
     if (newTokens.isEmpty) return;
@@ -107,11 +113,21 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
 
   void listenBleResult() {
     SocketClient.instance?.on(SocketEvents.bleDetectedResult, (data) {
+      if (!mounted) return;
       final users = (data['detectedUsers'] as List)
           .map((u) => UserModel.fromJson(u as Map<String, dynamic>))
           .toList();
       state = state.copyWith(nearbyUsers: users);
     });
+  }
+
+  @override
+  void dispose() {
+    _tokenRefreshTimer?.cancel();
+    _scanResultsSub?.cancel();
+    _isScanningSSub?.cancel();
+    BlePeripheralService.stopAdvertising();
+    super.dispose();
   }
 }
 

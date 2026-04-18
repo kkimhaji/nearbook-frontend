@@ -10,7 +10,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_ble_peripheral: ^1.2.2 
+  flutter_ble_peripheral: ^2.1.0
 
   # 네트워크
   dio: ^5.7.0
