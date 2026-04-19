@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../provider/nearby_provider.dart';
 import '../../guestbook/data/guestbook_repository.dart';
 import '../../../core/network/dio_exception_handler.dart';
+import '../../../shared/socket/socket_client.dart';
+import '../../../shared/socket/socket_events.dart';
+import '../../../shared/models/user.dart';
 
 class NearbyScreen extends ConsumerStatefulWidget {
   const NearbyScreen({super.key});
@@ -15,14 +19,71 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
   @override
   void initState() {
     super.initState();
+    debugPrint('[NearbyScreen] initState 호출');
+    _init();
+  }
+
+  Future<void> _init() async {
+    debugPrint('[NearbyScreen] _init 시작');
+
+    // 소켓 연결 완료 대기 (최대 5초)
+    int retryCount = 0;
+    while (!SocketClient.isConnected && retryCount < 10) {
+      debugPrint('[NearbyScreen] 소켓 연결 대기 중... ($retryCount)');
+      await Future.delayed(const Duration(milliseconds: 500));
+      retryCount++;
+    }
+
+    debugPrint('[NearbyScreen] 소켓 연결 상태: ${SocketClient.isConnected}');
+
+    // 리스너 등록
+    _registerSocketListener();
+
+    // BLE 초기화 및 스캔
     final notifier = ref.read(nearbyProvider.notifier);
-    notifier.initBleToken();
-    notifier.listenBleResult();
-    notifier.startScan();
+    await notifier.initBleToken();
+    debugPrint('[NearbyScreen] initBleToken 완료');
+    await notifier.startScan();
+  }
+
+  void _registerSocketListener() {
+    debugPrint('[NearbyScreen] 소켓 리스너 등록 시도');
+    debugPrint('[NearbyScreen] 소켓 연결 상태: ${SocketClient.isConnected}');
+    debugPrint('[NearbyScreen] 소켓 인스턴스: ${SocketClient.instance}');
+
+    if (SocketClient.instance == null) {
+      debugPrint('[NearbyScreen] 소켓 인스턴스가 null ❌ → 1초 후 재시도');
+      Future.delayed(const Duration(seconds: 1), _registerSocketListener);
+      return;
+    }
+
+    SocketClient.instance?.off(SocketEvents.bleDetectedResult);
+    SocketClient.instance?.on(SocketEvents.bleDetectedResult, (data) {
+      debugPrint('[NearbyScreen][Socket] ble:detected:result 수신 ✅: $data');
+      if (!mounted) return;
+      try {
+        final users = (data['detectedUsers'] as List)
+            .map((u) => UserModel.fromJson(u as Map<String, dynamic>))
+            .toList();
+        debugPrint(
+            '[NearbyScreen][Socket] 감지된 유저: ${users.map((u) => u.username).toList()}');
+        ref.read(nearbyProvider.notifier).updateNearbyUsers(users);
+      } catch (e) {
+        debugPrint('[NearbyScreen][Socket] 파싱 오류: $e');
+      }
+    });
+
+    // 등록 확인용: 테스트 이벤트 수신 여부
+    SocketClient.instance?.on('connect', (_) {
+      debugPrint('[NearbyScreen][Socket] 소켓 connect 이벤트 수신');
+    });
+
+    debugPrint('[NearbyScreen] 소켓 리스너 등록 완료');
   }
 
   @override
   void dispose() {
+    SocketClient.instance?.off(SocketEvents.bleDetectedResult);
     ref.read(nearbyProvider.notifier).stopScan();
     super.dispose();
   }
@@ -50,7 +111,6 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
       appBar: AppBar(
         title: const Text('주변'),
         actions: [
-          // 스캔 상태 표시
           if (state.isScanning)
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16.0),

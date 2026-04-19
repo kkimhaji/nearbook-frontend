@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import '../../../core/network/dio_client.dart';
@@ -19,52 +20,95 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
   final Set<String> _detectedTokens = {};
 
   Future<void> initBleToken() async {
+    debugPrint('[BLE][Token] BLE 토큰 초기화 시작');
     await _fetchAndAdvertise();
 
     _tokenRefreshTimer = Timer.periodic(
       const Duration(minutes: 9),
-      (_) => _fetchAndAdvertise(),
+      (_) {
+        debugPrint('[BLE][Token] 토큰 갱신 타이머 실행');
+        _fetchAndAdvertise();
+      },
     );
   }
 
   Future<void> _fetchAndAdvertise() async {
     try {
+      debugPrint('[BLE][Token] 서버에서 BLE 토큰 요청 중...');
       final response = await DioClient.instance.post('/users/ble-token');
       final token = response.data['token'] as String;
+      debugPrint('[BLE][Token] 토큰 발급 성공: $token');
       await BlePeripheralService.startAdvertising(token);
     } catch (e) {
-      return;
+      debugPrint('[BLE][Token] 토큰 발급 실패 ❌: $e');
     }
   }
 
-  // BLE 스캔 시작
+// lib/features/nearby/provider/nearby_provider.dart
   Future<void> startScan() async {
-    // 기존 구독 취소 후 재시작 (중복 리스너 방지)
     await _scanResultsSub?.cancel();
     await _isScanningSSub?.cancel();
 
     final isSupported = await FlutterBluePlus.isSupported;
+    debugPrint('[BLE][Scan] isSupported: $isSupported');
     if (!isSupported) return;
+
+    // iOS에서 CoreBluetooth 초기화 대기
+    BluetoothAdapterState adapterState =
+        await FlutterBluePlus.adapterState.first;
+    debugPrint('[BLE][Scan] 초기 상태: $adapterState');
+
+    if (adapterState != BluetoothAdapterState.on) {
+      debugPrint('[BLE][Scan] on 상태 대기 중...');
+      try {
+        adapterState = await FlutterBluePlus.adapterState
+            .where((s) => s == BluetoothAdapterState.on)
+            .first
+            .timeout(const Duration(seconds: 10));
+      } catch (_) {
+        debugPrint('[BLE][Scan] 타임아웃 → 강제 진행');
+      }
+      debugPrint('[BLE][Scan] 확정 상태: $adapterState');
+    }
 
     if (!mounted) return;
     state = state.copyWith(isScanning: true);
     _detectedTokens.clear();
 
+    // iOS에서 안정적인 스캔을 위해 짧은 딜레이 추가
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    debugPrint('[BLE][Scan] 스캔 시작');
+
     await FlutterBluePlus.startScan(
-      withServices: [Guid(kBleServiceUuid)],
-      timeout: const Duration(seconds: 10),
+      timeout: const Duration(seconds: 15),
     );
 
-    _scanResultsSub = FlutterBluePlus.scanResults.listen(_onScanResult);
+    _scanResultsSub = FlutterBluePlus.scanResults.listen((results) {
+      if (results.isEmpty) return;
+      debugPrint('[BLE][Scan] 결과: ${results.length}개');
+      for (final r in results) {
+        debugPrint(
+          '[BLE][Scan] → remoteId: ${r.device.remoteId} | '
+          'RSSI: ${r.rssi} | '
+          'localName: "${r.advertisementData.localName}" | '
+          'serviceUUIDs: ${r.advertisementData.serviceUuids}',
+        );
+      }
+      _onScanResult(results);
+    });
 
     _isScanningSSub = FlutterBluePlus.isScanning.listen((scanning) {
+      debugPrint('[BLE][Scan] 스캔 상태: $scanning');
       if (!scanning && mounted) {
         state = state.copyWith(isScanning: false);
+        debugPrint('[BLE][Scan] 완료. 감지 토큰: $_detectedTokens');
       }
     });
   }
 
   Future<void> stopScan() async {
+    debugPrint('[BLE][Scan] 스캔 중지');
     await FlutterBluePlus.stopScan();
     await _scanResultsSub?.cancel();
     await _isScanningSSub?.cancel();
@@ -80,45 +124,50 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
     final newTokens = <String>[];
 
     for (final result in results) {
-      // 1. localName에서 token 추출 (iOS/Android 공통)
       final localName = result.advertisementData.localName;
-      if (localName != null &&
-          localName.isNotEmpty &&
-          _tokenRegex.hasMatch(localName) &&
-          !_detectedTokens.contains(localName)) {
-        _detectedTokens.add(localName);
-        newTokens.add(localName);
-        continue;
+
+      // localName에서 token 추출 시도
+      if (localName != null && localName.isNotEmpty) {
+        debugPrint(
+            '[BLE][Token] localName 감지: "$localName" | regex 매칭: ${_tokenRegex.hasMatch(localName)}');
+        if (_tokenRegex.hasMatch(localName) &&
+            !_detectedTokens.contains(localName)) {
+          debugPrint('[BLE][Token] 유효한 token 발견 (localName): $localName ✅');
+          _detectedTokens.add(localName);
+          newTokens.add(localName);
+          continue;
+        }
       }
 
-      // 2. serviceData에서 token 추출 (Android 광고 → Android 스캔 fallback)
+      // serviceData에서 token 추출 시도
       final serviceData = result.advertisementData.serviceData;
       final tokenBytes = serviceData[Guid(kBleServiceUuid)];
       if (tokenBytes != null) {
         final token = String.fromCharCodes(tokenBytes);
+        debugPrint(
+            '[BLE][Token] serviceData 감지: "$token" | regex 매칭: ${_tokenRegex.hasMatch(token)}');
         if (_tokenRegex.hasMatch(token) && !_detectedTokens.contains(token)) {
+          debugPrint('[BLE][Token] 유효한 token 발견 (serviceData): $token ✅');
           _detectedTokens.add(token);
           newTokens.add(token);
         }
       }
     }
 
-    if (newTokens.isEmpty) return;
-
-    SocketClient.instance?.emit(
-      SocketEvents.bleDetected,
-      {'deviceTokens': newTokens},
-    );
+    if (newTokens.isNotEmpty) {
+      debugPrint('[BLE][Socket] 서버로 토큰 전송: $newTokens');
+      SocketClient.instance?.emit(
+        SocketEvents.bleDetected,
+        {'deviceTokens': newTokens},
+      );
+    }
   }
 
-  void listenBleResult() {
-    SocketClient.instance?.on(SocketEvents.bleDetectedResult, (data) {
-      if (!mounted) return;
-      final users = (data['detectedUsers'] as List)
-          .map((u) => UserModel.fromJson(u as Map<String, dynamic>))
-          .toList();
-      state = state.copyWith(nearbyUsers: users);
-    });
+  void updateNearbyUsers(List<UserModel> users) {
+    if (!mounted) return;
+    debugPrint(
+        '[NearbyNotifier] 유저 목록 업데이트: ${users.map((u) => u.username).toList()}');
+    state = state.copyWith(nearbyUsers: users);
   }
 
   @override
@@ -131,7 +180,6 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
   }
 }
 
-// 상태 클래스 분리
 class NearbyState {
   final List<UserModel> nearbyUsers;
   final bool isScanning;
