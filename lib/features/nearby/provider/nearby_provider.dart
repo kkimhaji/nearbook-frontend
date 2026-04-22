@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
@@ -10,6 +11,7 @@ import '../../../shared/ble/ble_peripheral_service.dart';
 
 const String kBleServiceUuid = '12345678-1234-1234-1234-123456789abc';
 final _tokenRegex = RegExp(r'^[0-9a-f]{8}$');
+const int _nearBookCompanyId = 0xFFFF;
 
 class NearbyNotifier extends StateNotifier<NearbyState> {
   NearbyNotifier() : super(const NearbyState());
@@ -44,7 +46,6 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
     }
   }
 
-// lib/features/nearby/provider/nearby_provider.dart
   Future<void> startScan() async {
     await _scanResultsSub?.cancel();
     await _isScanningSSub?.cancel();
@@ -53,7 +54,6 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
     debugPrint('[BLE][Scan] isSupported: $isSupported');
     if (!isSupported) return;
 
-    // iOS에서 CoreBluetooth 초기화 대기
     BluetoothAdapterState adapterState =
         await FlutterBluePlus.adapterState.first;
     debugPrint('[BLE][Scan] 초기 상태: $adapterState');
@@ -75,13 +75,19 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
     state = state.copyWith(isScanning: true);
     _detectedTokens.clear();
 
-    // iOS에서 안정적인 스캔을 위해 짧은 딜레이 추가
     await Future.delayed(const Duration(milliseconds: 500));
 
-    debugPrint('[BLE][Scan] 스캔 시작');
+    // 플랫폼별 스캔 전략
+    // Android: withServices 필터 사용 (정상 동작)
+    // iOS: 필터 없이 전체 스캔 후 regex로 토큰 식별
+    final isIOS = Platform.isIOS;
+    debugPrint(
+        '[BLE][Scan] 스캔 시작 (${isIOS ? "iOS: 필터 없음" : "Android: serviceUUID 필터"})');
 
     await FlutterBluePlus.startScan(
+      // withServices: isIOS ? [] : [Guid(kBleServiceUuid)],
       timeout: const Duration(seconds: 15),
+      androidScanMode: AndroidScanMode.lowLatency,
     );
 
     _scanResultsSub = FlutterBluePlus.scanResults.listen((results) {
@@ -92,7 +98,9 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
           '[BLE][Scan] → remoteId: ${r.device.remoteId} | '
           'RSSI: ${r.rssi} | '
           'localName: "${r.advertisementData.localName}" | '
-          'serviceUUIDs: ${r.advertisementData.serviceUuids}',
+          'serviceUUIDs: ${r.advertisementData.serviceUuids} | '
+          'serviceDataKeys: ${r.advertisementData.serviceData.keys.toList()} | '
+          'manufacturerData: ${r.advertisementData.manufacturerData}', // 추가
         );
       }
       _onScanResult(results);
@@ -124,33 +132,35 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
     final newTokens = <String>[];
 
     for (final result in results) {
-      final localName = result.advertisementData.localName;
+      String? token;
 
-      // localName에서 token 추출 시도
-      if (localName != null && localName.isNotEmpty) {
-        debugPrint(
-            '[BLE][Token] localName 감지: "$localName" | regex 매칭: ${_tokenRegex.hasMatch(localName)}');
-        if (_tokenRegex.hasMatch(localName) &&
-            !_detectedTokens.contains(localName)) {
-          debugPrint('[BLE][Token] 유효한 token 발견 (localName): $localName ✅');
-          _detectedTokens.add(localName);
-          newTokens.add(localName);
-          continue;
+      // 1순위: serviceUUID에서 token 추출
+      // Primary Advertisement 패킷에 포함 → iOS/Android 모두 안정적
+      for (final uuid in result.advertisementData.serviceUuids) {
+        final uuidStr = uuid.toString().toLowerCase();
+        final extracted = BlePeripheralService.uuidToToken(uuidStr);
+        if (extracted != null) {
+          debugPrint(
+              '[BLE][Token] ✅ serviceUUID에서 token 추출: $extracted (UUID: $uuidStr)');
+          token = extracted;
+          break;
         }
       }
 
-      // serviceData에서 token 추출 시도
-      final serviceData = result.advertisementData.serviceData;
-      final tokenBytes = serviceData[Guid(kBleServiceUuid)];
-      if (tokenBytes != null) {
-        final token = String.fromCharCodes(tokenBytes);
-        debugPrint(
-            '[BLE][Token] serviceData 감지: "$token" | regex 매칭: ${_tokenRegex.hasMatch(token)}');
-        if (_tokenRegex.hasMatch(token) && !_detectedTokens.contains(token)) {
-          debugPrint('[BLE][Token] 유효한 token 발견 (serviceData): $token ✅');
-          _detectedTokens.add(token);
-          newTokens.add(token);
+      // 2순위: localName regex (Android → Android fallback)
+      if (token == null) {
+        final localName = result.advertisementData.localName;
+        if (localName != null &&
+            localName.isNotEmpty &&
+            _tokenRegex.hasMatch(localName)) {
+          debugPrint('[BLE][Token] ✅ localName에서 token 추출: $localName');
+          token = localName;
         }
+      }
+
+      if (token != null && !_detectedTokens.contains(token)) {
+        _detectedTokens.add(token);
+        newTokens.add(token);
       }
     }
 
