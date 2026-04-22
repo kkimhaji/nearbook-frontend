@@ -45,21 +45,16 @@ class _GuestbookScreenState extends ConsumerState<GuestbookScreen> {
                 itemBuilder: (context, index) {
                   final group = groups[index] as Map<String, dynamic>;
                   final entries = group['entries'] as List;
-                  final groupTitle = _groupBy == 'date'
-                      ? group['date'] as String
-                      : (group['writer'] as Map<String, dynamic>)['nickname']
-                          as String;
 
-                  return ExpansionTile(
-                    title: Text(groupTitle),
-                    children: entries.map((e) {
-                      final entry = e as Map<String, dynamic>;
-                      return ListTile(
-                        title: Text(entry['content'] as String),
-                        subtitle: Text(entry['createdAt'] as String),
-                      );
-                    }).toList(),
-                  );
+                  if (_groupBy == 'date') {
+                    // 날짜별 그룹: 날짜 헤더 + 각 항목에 작성자 표시
+                    final date = group['date'] as String;
+                    return _buildDateGroup(date, entries);
+                  } else {
+                    // 작성자별 그룹: 작성자 헤더 + 항목 목록
+                    final writer = group['writer'] as Map<String, dynamic>;
+                    return _buildWriterGroup(writer, entries);
+                  }
                 },
               );
             },
@@ -97,6 +92,149 @@ class _GuestbookScreenState extends ConsumerState<GuestbookScreen> {
       bottomSheet: guestbookState.requestId != null
           ? _buildRequestBanner(context, guestbookState)
           : null,
+    );
+  }
+
+  // 날짜별 그룹 위젯
+  Widget _buildDateGroup(String date, List entries) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 날짜 헤더
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+          child: Text(
+            date,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
+          ),
+        ),
+        const Divider(height: 1),
+        ...entries.map((e) {
+          final entry = e as Map<String, dynamic>;
+          final writer = entry['writer'] as Map<String, dynamic>;
+          return _buildEntryTile(
+            content: entry['content'] as String,
+            createdAt: entry['createdAt'] as String,
+            writerNickname: writer['nickname'] as String,
+            writerUsername: writer['username'] as String,
+          );
+        }),
+      ],
+    );
+  }
+
+  // 작성자별 그룹 위젯
+  Widget _buildWriterGroup(Map<String, dynamic> writer, List entries) {
+    final nickname = writer['nickname'] as String;
+    final username = writer['username'] as String;
+
+    return ExpansionTile(
+      // 작성자 헤더: 닉네임 + 아이디
+      leading: CircleAvatar(
+        child: Text(nickname[0]),
+      ),
+      title: Text(
+        nickname,
+        style: const TextStyle(fontWeight: FontWeight.bold),
+      ),
+      subtitle: Text(
+        '@$username',
+        style: const TextStyle(color: Colors.grey, fontSize: 12),
+      ),
+      trailing: Text(
+        '${entries.length}개',
+        style: const TextStyle(color: Colors.grey, fontSize: 12),
+      ),
+      children: entries.map((e) {
+        final entry = e as Map<String, dynamic>;
+        return _buildEntryTile(
+          content: entry['content'] as String,
+          createdAt: entry['createdAt'] as String,
+          showWriter: false, // 작성자별 그룹에서는 작성자 중복 표시 불필요
+        );
+      }).toList(),
+    );
+  }
+
+  // 개별 방명록 항목
+  Widget _buildEntryTile({
+    required String content,
+    required String createdAt,
+    String? writerNickname,
+    String? writerUsername,
+    bool showWriter = true,
+  }) {
+    // ISO 날짜 → 읽기 좋은 형식으로 변환
+    final dateTime = DateTime.tryParse(createdAt);
+    final formattedTime = dateTime != null
+        ? '${dateTime.hour.toString().padLeft(2, '0')}:'
+            '${dateTime.minute.toString().padLeft(2, '0')}'
+        : createdAt;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFEEEEEE)),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 작성자 정보 (날짜별 그룹에서만 표시)
+          if (showWriter && writerNickname != null && writerUsername != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 12,
+                    child: Text(
+                      writerNickname[0],
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    writerNickname,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '@$writerUsername',
+                    style: const TextStyle(
+                      color: Colors.grey,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          // 방명록 내용
+          Text(
+            content,
+            style: const TextStyle(fontSize: 15),
+          ),
+
+          // 작성 시간
+          const SizedBox(height: 4),
+          Text(
+            formattedTime,
+            style: const TextStyle(
+              color: Colors.grey,
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
