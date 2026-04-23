@@ -3,18 +3,19 @@ import '../data/guestbook_repository.dart';
 import '../../../shared/socket/socket_client.dart';
 import '../../../shared/socket/socket_events.dart';
 
-// 받은 방명록 요청 상태
 class GuestbookRequestState {
   final int? requestId;
   final Map<String, dynamic>? owner;
   final bool isTyping;
   final String? typingNickname;
+  final bool shouldRefresh;
 
   const GuestbookRequestState({
     this.requestId,
     this.owner,
     this.isTyping = false,
     this.typingNickname,
+    this.shouldRefresh = false,
   });
 
   GuestbookRequestState copyWith({
@@ -22,12 +23,14 @@ class GuestbookRequestState {
     Map<String, dynamic>? owner,
     bool? isTyping,
     String? typingNickname,
+    bool? shouldRefresh,
   }) {
     return GuestbookRequestState(
       requestId: requestId ?? this.requestId,
       owner: owner ?? this.owner,
       isTyping: isTyping ?? this.isTyping,
       typingNickname: typingNickname ?? this.typingNickname,
+      shouldRefresh: shouldRefresh ?? this.shouldRefresh,
     );
   }
 
@@ -37,9 +40,7 @@ class GuestbookRequestState {
 class GuestbookNotifier extends StateNotifier<GuestbookRequestState> {
   final GuestbookRepository _repository;
 
-  GuestbookNotifier(this._repository) : super(const GuestbookRequestState()) {
-    _listenSocketEvents();
-  }
+  GuestbookNotifier(this._repository) : super(const GuestbookRequestState());
 
   void _listenSocketEvents() {
     SocketClient.instance
@@ -62,12 +63,22 @@ class GuestbookNotifier extends StateNotifier<GuestbookRequestState> {
         state = state.copyWith(isTyping: false, typingNickname: null);
       })
       ..on(SocketEvents.guestbookCompleted, (_) {
-        state = state.copyWith(isTyping: false, typingNickname: null);
+        // 타이핑 인디케이터 초기화 + 목록 갱신 신호
+        state = state.copyWith(
+          isTyping: false,
+          typingNickname: null,
+          shouldRefresh: true, // 갱신 트리거
+        );
       });
   }
 
   void initSocketListeners() {
     _listenSocketEvents();
+  }
+
+  // 갱신 완료 후 신호 초기화
+  void clearRefreshSignal() {
+    state = state.copyWith(shouldRefresh: false);
   }
 
   Future<void> submitGuestbook(int requestId, String content) async {
