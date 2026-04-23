@@ -11,7 +11,6 @@ import '../../../shared/ble/ble_peripheral_service.dart';
 
 const String kBleServiceUuid = '12345678-1234-1234-1234-123456789abc';
 final _tokenRegex = RegExp(r'^[0-9a-f]{8}$');
-const int _nearBookCompanyId = 0xFFFF;
 
 class NearbyNotifier extends StateNotifier<NearbyState> {
   NearbyNotifier() : super(const NearbyState());
@@ -92,23 +91,25 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
 
     _scanResultsSub = FlutterBluePlus.scanResults.listen((results) {
       if (results.isEmpty) return;
-      debugPrint('[BLE][Scan] 결과: ${results.length}개');
-      for (final r in results) {
-        debugPrint(
-          '[BLE][Scan] → remoteId: ${r.device.remoteId} | '
-          'RSSI: ${r.rssi} | '
-          'localName: "${r.advertisementData.localName}" | '
-          'serviceUUIDs: ${r.advertisementData.serviceUuids} | '
-          'serviceDataKeys: ${r.advertisementData.serviceData.keys.toList()} | '
-          'manufacturerData: ${r.advertisementData.manufacturerData}', // 추가
-        );
-      }
+      // debugPrint('[BLE][Scan] 결과: ${results.length}개');
+      // for (final r in results) {
+      //   debugPrint(
+      //     '[BLE][Scan] → remoteId: ${r.device.remoteId} | '
+      //     'RSSI: ${r.rssi} | '
+      //     'localName: "${r.advertisementData.localName}" | '
+      //     'serviceUUIDs: ${r.advertisementData.serviceUuids} | '
+      //     'serviceDataKeys: ${r.advertisementData.serviceData.keys.toList()} | '
+      //     'manufacturerData: ${r.advertisementData.manufacturerData}', // 추가
+      //   );
+      // }
+      if (!mounted) return;
       _onScanResult(results);
     });
 
     _isScanningSSub = FlutterBluePlus.isScanning.listen((scanning) {
       debugPrint('[BLE][Scan] 스캔 상태: $scanning');
-      if (!scanning && mounted) {
+      if (!mounted) return; // StateNotifier mounted 체크
+      if (!scanning) {
         state = state.copyWith(isScanning: false);
         debugPrint('[BLE][Scan] 완료. 감지 토큰: $_detectedTokens');
       }
@@ -150,9 +151,7 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
       // 2순위: localName regex (Android → Android fallback)
       if (token == null) {
         final localName = result.advertisementData.localName;
-        if (localName != null &&
-            localName.isNotEmpty &&
-            _tokenRegex.hasMatch(localName)) {
+        if (localName.isNotEmpty && _tokenRegex.hasMatch(localName)) {
           debugPrint('[BLE][Token] ✅ localName에서 token 추출: $localName');
           token = localName;
         }
