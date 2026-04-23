@@ -18,6 +18,21 @@ class _GuestbookScreenState extends ConsumerState<GuestbookScreen> {
     final guestbookState = ref.watch(guestbookProvider);
     final myGuestbook = ref.watch(myGuestbookProvider(_groupBy));
 
+    // WebSocket guestbook:completed 수신 시 자동 갱신
+    ref.listen(guestbookProvider, (previous, next) {
+      if (next.shouldRefresh && !(previous?.shouldRefresh ?? false)) {
+        ref.invalidate(myGuestbookProvider(_groupBy));
+        ref.read(guestbookProvider.notifier).clearRefreshSignal();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('새 방명록이 도착했습니다! 🎉'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    });
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('내 방명록'),
@@ -38,28 +53,59 @@ class _GuestbookScreenState extends ConsumerState<GuestbookScreen> {
           myGuestbook.when(
             data: (groups) {
               if (groups.isEmpty) {
-                return const Center(child: Text('아직 방명록이 없습니다.'));
+                // 빈 화면에도 Pull-to-refresh 적용
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    ref.invalidate(myGuestbookProvider(_groupBy));
+                    await ref.read(myGuestbookProvider(_groupBy).future);
+                  },
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: const [
+                      SizedBox(height: 200),
+                      Center(child: Text('아직 방명록이 없습니다.')),
+                    ],
+                  ),
+                );
               }
-              return ListView.builder(
-                itemCount: groups.length,
-                itemBuilder: (context, index) {
-                  final group = groups[index] as Map<String, dynamic>;
-                  final entries = group['entries'] as List;
 
-                  if (_groupBy == 'date') {
-                    // 날짜별 그룹: 날짜 헤더 + 각 항목에 작성자 표시
-                    final date = group['date'] as String;
-                    return _buildDateGroup(date, entries);
-                  } else {
-                    // 작성자별 그룹: 작성자 헤더 + 항목 목록
-                    final writer = group['writer'] as Map<String, dynamic>;
-                    return _buildWriterGroup(writer, entries);
-                  }
+              // Pull-to-refresh + 목록
+              return RefreshIndicator(
+                onRefresh: () async {
+                  ref.invalidate(myGuestbookProvider(_groupBy));
+                  await ref.read(myGuestbookProvider(_groupBy).future);
                 },
+                child: ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  itemCount: groups.length,
+                  itemBuilder: (context, index) {
+                    final group = groups[index] as Map<String, dynamic>;
+                    final entries = group['entries'] as List;
+
+                    if (_groupBy == 'date') {
+                      final date = group['date'] as String;
+                      return _buildDateGroup(date, entries);
+                    } else {
+                      final writer = group['writer'] as Map<String, dynamic>;
+                      return _buildWriterGroup(writer, entries);
+                    }
+                  },
+                ),
               );
             },
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('오류: $e')),
+            error: (e, _) => RefreshIndicator(
+              onRefresh: () async {
+                ref.invalidate(myGuestbookProvider(_groupBy));
+              },
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  SizedBox(height: 200),
+                  Center(child: Text('오류가 발생했습니다. 당겨서 새로고침하세요.')),
+                ],
+              ),
+            ),
           ),
 
           // 타이핑 인디케이터
@@ -87,20 +133,16 @@ class _GuestbookScreenState extends ConsumerState<GuestbookScreen> {
             ),
         ],
       ),
-
-      // 방명록 요청 알림
       bottomSheet: guestbookState.requestId != null
           ? _buildRequestBanner(context, guestbookState)
           : null,
     );
   }
 
-  // 날짜별 그룹 위젯
   Widget _buildDateGroup(String date, List entries) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 날짜 헤더
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
           child: Text(
@@ -127,16 +169,12 @@ class _GuestbookScreenState extends ConsumerState<GuestbookScreen> {
     );
   }
 
-  // 작성자별 그룹 위젯
   Widget _buildWriterGroup(Map<String, dynamic> writer, List entries) {
     final nickname = writer['nickname'] as String;
     final username = writer['username'] as String;
 
     return ExpansionTile(
-      // 작성자 헤더: 닉네임 + 아이디
-      leading: CircleAvatar(
-        child: Text(nickname[0]),
-      ),
+      leading: CircleAvatar(child: Text(nickname[0])),
       title: Text(
         nickname,
         style: const TextStyle(fontWeight: FontWeight.bold),
@@ -154,13 +192,12 @@ class _GuestbookScreenState extends ConsumerState<GuestbookScreen> {
         return _buildEntryTile(
           content: entry['content'] as String,
           createdAt: entry['createdAt'] as String,
-          showWriter: false, // 작성자별 그룹에서는 작성자 중복 표시 불필요
+          showWriter: false,
         );
       }).toList(),
     );
   }
 
-  // 개별 방명록 항목
   Widget _buildEntryTile({
     required String content,
     required String createdAt,
@@ -168,7 +205,6 @@ class _GuestbookScreenState extends ConsumerState<GuestbookScreen> {
     String? writerUsername,
     bool showWriter = true,
   }) {
-    // ISO 날짜 → 읽기 좋은 형식으로 변환
     final dateTime = DateTime.tryParse(createdAt);
     final formattedTime = dateTime != null
         ? '${dateTime.hour.toString().padLeft(2, '0')}:'
@@ -185,7 +221,6 @@ class _GuestbookScreenState extends ConsumerState<GuestbookScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 작성자 정보 (날짜별 그룹에서만 표시)
           if (showWriter && writerNickname != null && writerUsername != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
@@ -217,21 +252,11 @@ class _GuestbookScreenState extends ConsumerState<GuestbookScreen> {
                 ],
               ),
             ),
-
-          // 방명록 내용
-          Text(
-            content,
-            style: const TextStyle(fontSize: 15),
-          ),
-
-          // 작성 시간
+          Text(content, style: const TextStyle(fontSize: 15)),
           const SizedBox(height: 4),
           Text(
             formattedTime,
-            style: const TextStyle(
-              color: Colors.grey,
-              fontSize: 11,
-            ),
+            style: const TextStyle(color: Colors.grey, fontSize: 11),
           ),
         ],
       ),
