@@ -13,9 +13,6 @@ import '../../features/guestbook/view/guestbook_screen.dart';
 import '../../features/friend/view/friend_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  // auth 상태 변경 시 라우터 갱신을 위한 listenable
-  final authNotifier = ref.watch(authProvider.notifier);
-
   return GoRouter(
     initialLocation: '/login',
     refreshListenable: _AuthChangeNotifier(ref),

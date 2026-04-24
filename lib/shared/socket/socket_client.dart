@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../../../core/constants/api_constants.dart';
 import '../../../core/storage/secure_storage.dart';
-import 'socket_events.dart';
 
 class SocketClient {
   static io.Socket? _socket;
