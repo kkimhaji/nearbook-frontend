@@ -82,18 +82,92 @@ class _WriteScreenState extends ConsumerState<WriteScreen> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: TextField(
-          controller: _contentController,
-          maxLines: null,
-          expands: true,
-          autofocus: true,
-          decoration: InputDecoration(
-            hintText: '$ownerNickname님에게 남길 말을 작성하세요...',
-            border: InputBorder.none,
+      body: Column(
+        children: [
+          // 방명록 대상자 정보 헤더
+          Container(
+            padding: const EdgeInsets.all(16),
+            color: Colors.white,
+            child: Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor:
+                      Theme.of(context).colorScheme.primaryContainer,
+                  child: Text(
+                    ownerNickname[0].toUpperCase(),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      ownerNickname,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const Text(
+                      '에게 방명록을 남겨주세요',
+                      style: TextStyle(
+                        color: Color(0xFF999999),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
+          const Divider(height: 1),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: TextField(
+                controller: _contentController,
+                maxLines: null,
+                expands: true,
+                autofocus: true,
+                style: const TextStyle(fontSize: 16, height: 1.7),
+                decoration: InputDecoration(
+                  hintText: '$ownerNickname님에게 남길 말을 작성하세요...',
+                  hintStyle: const TextStyle(
+                    color: Color(0xFFCCCCCC),
+                    fontSize: 15,
+                  ),
+                  border: InputBorder.none,
+                ),
+              ),
+            ),
+          ),
+          // 글자 수 표시
+          ValueListenableBuilder(
+            valueListenable: _contentController,
+            builder: (_, value, __) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              color: const Color(0xFFF5F5F7),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    '${value.text.length} / 1000',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: value.text.length > 900
+                          ? Colors.red
+                          : const Color(0xFFAAAAAA),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
