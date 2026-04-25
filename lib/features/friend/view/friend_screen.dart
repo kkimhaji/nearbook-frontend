@@ -139,12 +139,44 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
                     itemCount: friends.length,
                     itemBuilder: (context, index) {
                       final friend = friends[index];
-                      return ListTile(
-                        leading: CircleAvatar(
-                          child: Text(friend.nickname[0]),
+                      return Card(
+                        margin: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 4),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          side: BorderSide(color: Colors.grey.shade100),
                         ),
-                        title: Text(friend.nickname),
-                        subtitle: Text('@${friend.username}'),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 6),
+                          leading: CircleAvatar(
+                            radius: 22,
+                            backgroundColor:
+                                Theme.of(context).colorScheme.primaryContainer,
+                            child: Text(
+                              friend.nickname[0].toUpperCase(),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                          title: Text(
+                            friend.nickname,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                            ),
+                          ),
+                          subtitle: Text(
+                            '@${friend.username}',
+                            style: const TextStyle(
+                              color: Color(0xFF999999),
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
                       );
                     },
                   ),
