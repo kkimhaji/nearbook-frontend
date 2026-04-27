@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nearbook_frontend/features/friend/provider/friend_provider.dart';
 import 'package:nearbook_frontend/features/guestbook/provider/guestbook_provider.dart';
+import 'package:nearbook_frontend/features/profile/view/profile_screen.dart';
 import 'package:nearbook_frontend/shared/socket/socket_client.dart';
 import '../../core/storage/secure_storage.dart';
 import '../../features/auth/provider/auth_provider.dart';
@@ -39,17 +40,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
         ],
       ),
+      // ShellRoute 밖에 배치하여 독립적인 AppBar를 사용
+      GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
     ],
   );
 });
 
-// auth 상태 변경을 GoRouter에 전달하는 브릿지
 class _AuthChangeNotifier extends ChangeNotifier {
   _AuthChangeNotifier(Ref ref) {
     ref.listen(authProvider, (previous, next) {
-      if (previous?.status != next.status) {
-        notifyListeners();
-      }
+      if (previous?.status != next.status) notifyListeners();
     });
   }
 }
@@ -79,8 +79,6 @@ class _MainShellState extends ConsumerState<MainShell> {
 
   Future<void> _initSocket() async {
     await SocketClient.connect();
-
-    // 소켓 연결 완료 후 리스너 등록
     ref.read(friendProvider.notifier).initSocketListeners();
     ref.read(guestbookProvider.notifier).initSocketListeners();
   }
@@ -91,12 +89,9 @@ class _MainShellState extends ConsumerState<MainShell> {
       appBar: AppBar(
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await ref.read(authProvider.notifier).logout();
-              if (!mounted) return;
-              context.go('/login');
-            },
+            icon: const Icon(Icons.person_outline),
+            tooltip: '마이페이지',
+            onPressed: () => context.push('/profile'),
           ),
         ],
       ),
