@@ -106,6 +106,11 @@ class GuestbookNotifier extends StateNotifier<GuestbookRequestState> {
   }
 }
 
+final writtenGuestbookProvider =
+    FutureProvider.family<List<dynamic>, String>((ref, groupBy) {
+  return ref.watch(guestbookRepositoryProvider).getWrittenGuestbook(groupBy);
+});
+
 final guestbookRepositoryProvider = Provider((ref) => GuestbookRepository());
 
 final guestbookProvider =

@@ -32,4 +32,12 @@ class GuestbookRepository {
     );
     return response.data as List;
   }
+
+  Future<List<dynamic>> getWrittenGuestbook(String groupBy) async {
+    final response = await _dio.get(
+      '/guestbook/written',
+      queryParameters: {'groupBy': groupBy},
+    );
+    return response.data as List;
+  }
 }
