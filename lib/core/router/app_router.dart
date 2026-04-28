@@ -87,13 +87,11 @@ class _MainShellState extends ConsumerState<MainShell> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person_outline),
-            tooltip: '마이페이지',
-            onPressed: () => context.push('/profile'),
-          ),
-        ],
+        leading: IconButton(
+          icon: const Icon(Icons.person_outline),
+          tooltip: '마이페이지',
+          onPressed: () => context.push('/profile'),
+        ),
       ),
       body: widget.child,
       bottomNavigationBar: NavigationBar(
