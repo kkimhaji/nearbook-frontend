@@ -34,4 +34,8 @@ class AuthRepository {
   Future<void> logout() async {
     await SecureStorage.deleteToken();
   }
+
+  Future<void> forgotPassword(String email) async {
+    await _dio.post('/auth/forgot-password', data: {'email': email});
+  }
 }
