@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../provider/friend_provider.dart';
 import '../../../core/network/dio_exception_handler.dart';
+import '../../../shared/widgets/profile_avatar.dart';
 
 class FriendScreen extends ConsumerStatefulWidget {
   const FriendScreen({super.key});
@@ -93,7 +94,7 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Padding(
-                    padding: EdgeInsets.all(16.0),
+                    padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
                     child: Text(
                       '받은 친구 요청',
                       style: TextStyle(fontWeight: FontWeight.bold),
@@ -102,6 +103,11 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
                   ...requests.map((req) {
                     final requester = req['requester'] as Map<String, dynamic>;
                     return ListTile(
+                      leading: ProfileAvatar(
+                        nickname: requester['nickname'] as String,
+                        imageUrl: requester['profileImageUrl'] as String?,
+                        radius: 22,
+                      ),
                       title: Text(requester['nickname'] as String),
                       subtitle: Text('@${requester['username']}'),
                       trailing: Row(
@@ -139,44 +145,14 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
                     itemCount: friends.length,
                     itemBuilder: (context, index) {
                       final friend = friends[index];
-                      return Card(
-                        margin: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 4),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          side: BorderSide(color: Colors.grey.shade100),
+                      return ListTile(
+                        leading: ProfileAvatar(
+                          nickname: friend.nickname,
+                          imageUrl: friend.profileImageUrl,
+                          radius: 22,
                         ),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 6),
-                          leading: CircleAvatar(
-                            radius: 22,
-                            backgroundColor:
-                                Theme.of(context).colorScheme.primaryContainer,
-                            child: Text(
-                              friend.nickname[0].toUpperCase(),
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                            ),
-                          ),
-                          title: Text(
-                            friend.nickname,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 15,
-                            ),
-                          ),
-                          subtitle: Text(
-                            '@${friend.username}',
-                            style: const TextStyle(
-                              color: Color(0xFF999999),
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
+                        title: Text(friend.nickname),
+                        subtitle: Text('@${friend.username}'),
                       );
                     },
                   ),

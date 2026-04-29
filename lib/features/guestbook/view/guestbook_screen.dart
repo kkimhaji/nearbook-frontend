@@ -1,8 +1,8 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nearbook_frontend/features/guestbook/view/write_screen.dart';
 import '../provider/guestbook_provider.dart';
+import '../../../shared/widgets/profile_avatar.dart';
 
 class GuestbookScreen extends ConsumerStatefulWidget {
   const GuestbookScreen({super.key});
@@ -319,7 +319,7 @@ class _GroupSection extends StatelessWidget {
           Row(
             children: [
               if (avatarLabel != null) ...[
-                _ProfileAvatar(
+                ProfileAvatar(
                   nickname: avatarLabel!,
                   imageUrl: avatarImageUrl,
                   radius: 14,
@@ -403,7 +403,7 @@ class _ReceivedEntryCard extends StatelessWidget {
             Row(
               children: [
                 if (showWriter && writerNickname != null) ...[
-                  _ProfileAvatar(
+                  ProfileAvatar(
                     nickname: writerNickname!,
                     imageUrl: writerProfileImageUrl,
                     radius: 10,
@@ -490,7 +490,7 @@ class _WrittenEntryCard extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _ProfileAvatar(
+                  ProfileAvatar(
                     nickname: ownerNickname ?? '?',
                     imageUrl: ownerProfileImageUrl,
                     radius: 10,
@@ -589,55 +589,6 @@ class _RequestBanner extends ConsumerWidget {
             child: const Text('작성'),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ProfileAvatar extends StatelessWidget {
-  final String? imageUrl;
-  final String nickname;
-  final double radius;
-
-  const _ProfileAvatar({
-    required this.nickname,
-    this.imageUrl,
-    this.radius = 16,
-  });
-
-  String _buildImageUrl(String path) {
-    const baseUrl = String.fromEnvironment(
-      'BASE_URL',
-      defaultValue: 'http://localhost:3000/api',
-    );
-    final host = baseUrl.replaceFirst('/api', '');
-    return '$host$path';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    if (imageUrl != null) {
-      return CircleAvatar(
-        radius: radius,
-        backgroundImage: CachedNetworkImageProvider(
-          _buildImageUrl(imageUrl!),
-        ),
-        backgroundColor: colorScheme.primaryContainer,
-      );
-    }
-
-    return CircleAvatar(
-      radius: radius,
-      backgroundColor: colorScheme.primaryContainer,
-      child: Text(
-        nickname.isNotEmpty ? nickname[0] : '?',
-        style: TextStyle(
-          fontSize: radius * 0.75,
-          fontWeight: FontWeight.w500,
-          color: colorScheme.onPrimaryContainer,
-        ),
       ),
     );
   }
