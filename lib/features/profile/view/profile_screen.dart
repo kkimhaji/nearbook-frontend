@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../provider/profile_provider.dart';
 import '../../auth/provider/auth_provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../../core/constants/api_constants.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -216,6 +219,82 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
+  String _buildImageUrl(String? path) {
+    if (path == null) return '';
+    final host = ApiConstants.baseUrl.replaceFirst('/api', '');
+    return '$host$path';
+  }
+
+  Future<void> _pickAndUploadImage() async {
+    final profile = ref.read(profileProvider).profile;
+
+    // 선택 방법 선택 (갤러리 / 카메라)
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('갤러리에서 선택'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('카메라로 촬영'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            if (profile?['profileImageUrl'] != null)
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: Colors.red),
+                title: const Text('사진 삭제', style: TextStyle(color: Colors.red)),
+                onTap: () => Navigator.pop(context, null),
+              ),
+          ],
+        ),
+      ),
+    );
+
+    // null 반환 = 삭제 선택
+    if (!mounted) return;
+    if (source == null && profile?['profileImageUrl'] != null) {
+      await _deleteProfileImage();
+      return;
+    }
+    if (source == null) return;
+
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: source,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 85,
+    );
+    if (picked == null) return;
+
+    final success = await ref
+        .read(profileProvider.notifier)
+        .uploadProfileImage(picked.path);
+    _showMessage(
+      success
+          ? '프로필 사진이 변경되었습니다.'
+          : ref.read(profileProvider).errorMessage ?? '오류가 발생했습니다.',
+      isError: !success,
+    );
+  }
+
+  Future<void> _deleteProfileImage() async {
+    final success =
+        await ref.read(profileProvider.notifier).deleteProfileImage();
+    _showMessage(
+      success
+          ? '프로필 사진이 삭제되었습니다.'
+          : ref.read(profileProvider).errorMessage ?? '오류가 발생했습니다.',
+      isError: !success,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(profileProvider);
@@ -233,11 +312,46 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   color: Theme.of(context).colorScheme.primaryContainer,
                   child: Column(
                     children: [
-                      CircleAvatar(
-                        radius: 36,
-                        child: Text(
-                          (profile?['nickname'] as String? ?? '?')[0],
-                          style: const TextStyle(fontSize: 28),
+                      GestureDetector(
+                        onTap: _pickAndUploadImage,
+                        child: Stack(
+                          children: [
+                            CircleAvatar(
+                              radius: 40,
+                              backgroundImage: profile?['profileImageUrl'] !=
+                                      null
+                                  ? CachedNetworkImageProvider(
+                                      _buildImageUrl(
+                                        profile!['profileImageUrl'] as String,
+                                      ),
+                                    )
+                                  : null,
+                              child: profile?['profileImageUrl'] == null
+                                  ? Text(
+                                      (profile?['nickname'] as String? ??
+                                          '?')[0],
+                                      style: const TextStyle(fontSize: 28),
+                                    )
+                                  : null,
+                            ),
+                            Positioned(
+                              bottom: 0,
+                              right: 0,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.camera_alt,
+                                  size: 14,
+                                  color:
+                                      Theme.of(context).colorScheme.onPrimary,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 12),

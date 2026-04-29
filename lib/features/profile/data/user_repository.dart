@@ -29,6 +29,24 @@ class UserRepository {
     });
   }
 
+  Future<String> uploadProfileImage(String filePath) async {
+    final formData = FormData.fromMap({
+      'image': await MultipartFile.fromFile(
+        filePath,
+        filename: filePath.split('/').last,
+      ),
+    });
+    final response = await _dio.post(
+      '/users/profile-image',
+      data: formData,
+    );
+    return response.data['profileImageUrl'] as String;
+  }
+
+  Future<void> deleteProfileImage() async {
+    await _dio.delete('/users/profile-image');
+  }
+
   Future<void> deleteAccount() async {
     await _dio.delete('/users/me');
   }

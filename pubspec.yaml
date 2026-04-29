@@ -30,6 +30,9 @@ dependencies:
   # 라우팅
   go_router: ^14.6.2
 
+  image_picker: ^1.1.2        # 갤러리/카메라에서 이미지 선택
+  cached_network_image: ^3.4.1 # 네트워크 이미지 캐싱
+  
 dev_dependencies:
   flutter_test:
     sdk: flutter

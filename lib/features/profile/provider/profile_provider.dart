@@ -127,6 +127,48 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
       return false;
     }
   }
+
+  Future<bool> uploadProfileImage(String filePath) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      final url = await _repository.uploadProfileImage(filePath);
+      final updated = Map<String, dynamic>.from(state.profile ?? {});
+      updated['profileImageUrl'] = url;
+      state = state.copyWith(
+        profile: updated,
+        isLoading: false,
+        successMessage: '프로필 사진이 변경되었습니다.',
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: DioExceptionHandler.getMessage(e),
+      );
+      return false;
+    }
+  }
+
+  Future<bool> deleteProfileImage() async {
+    state = state.copyWith(isLoading: true);
+    try {
+      await _repository.deleteProfileImage();
+      final updated = Map<String, dynamic>.from(state.profile ?? {});
+      updated['profileImageUrl'] = null;
+      state = state.copyWith(
+        profile: updated,
+        isLoading: false,
+        successMessage: '프로필 사진이 삭제되었습니다.',
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: DioExceptionHandler.getMessage(e),
+      );
+      return false;
+    }
+  }
 }
 
 final userRepositoryProvider = Provider((ref) => UserRepository());
