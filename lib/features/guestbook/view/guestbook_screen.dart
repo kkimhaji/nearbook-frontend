@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nearbook_frontend/features/guestbook/view/write_screen.dart';
@@ -15,11 +16,17 @@ class _GuestbookScreenState extends ConsumerState<GuestbookScreen>
   late final TabController _tabController;
   String _receivedGroupBy = 'date';
   String _writtenGroupBy = 'date';
+  int _currentTabIndex = 0;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    // 탭 변경 시 인덱스 갱신
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging) return;
+      setState(() => _currentTabIndex = _tabController.index);
+    });
   }
 
   @override
@@ -31,9 +38,14 @@ class _GuestbookScreenState extends ConsumerState<GuestbookScreen>
   @override
   Widget build(BuildContext context) {
     final guestbookState = ref.watch(guestbookProvider);
-    final receivedGuestbook = ref.watch(myGuestbookProvider(_receivedGroupBy));
-    final writtenGuestbook =
-        ref.watch(writtenGuestbookProvider(_writtenGroupBy));
+
+    // 현재 탭에 해당하는 데이터만 watch
+    final receivedGuestbook = _currentTabIndex == 0
+        ? ref.watch(myGuestbookProvider(_receivedGroupBy))
+        : null;
+    final writtenGuestbook = _currentTabIndex == 1
+        ? ref.watch(writtenGuestbookProvider(_writtenGroupBy))
+        : null;
 
     return Scaffold(
       appBar: AppBar(
@@ -93,9 +105,8 @@ class _GuestbookScreenState extends ConsumerState<GuestbookScreen>
 }
 
 // 받은 방명록 탭
-
 class _ReceivedGuestbookTab extends ConsumerWidget {
-  final AsyncValue<List<dynamic>> guestbook;
+  final AsyncValue<List<dynamic>>? guestbook; // nullable로 변경
   final String groupBy;
   final ValueChanged<String> onGroupByChanged;
 
@@ -115,57 +126,65 @@ class _ReceivedGuestbookTab extends ConsumerWidget {
           onChanged: onGroupByChanged,
         ),
         Expanded(
-          child: guestbook.when(
-            data: (groups) {
-              if (groups.isEmpty) {
-                return const _EmptyState(message: '아직 받은 방명록이 없습니다.');
-              }
-              return ListView.builder(
-                padding: const EdgeInsets.only(bottom: 80),
-                itemCount: groups.length,
-                itemBuilder: (context, index) {
-                  final group = groups[index] as Map<String, dynamic>;
-                  final entries = group['entries'] as List;
-                  final groupTitle = group['date'] as String? ??
-                      (group['writer'] as Map<String, dynamic>?)?['nickname']
-                          as String? ??
-                      '-';
-                  final writerMap = group['writer'] as Map<String, dynamic>?;
-                  final avatarLabel = groupBy == 'writer'
-                      ? (writerMap?['nickname'] as String? ?? '?')
-                      : groupTitle;
+          child: (guestbook == null)
+              ? const Center(child: CircularProgressIndicator())
+              : guestbook!.when(
+                  data: (groups) {
+                    if (groups.isEmpty) {
+                      return const _EmptyState(message: '아직 받은 방명록이 없습니다.');
+                    }
+                    return ListView.builder(
+                      padding: const EdgeInsets.only(bottom: 80),
+                      itemCount: groups.length,
+                      itemBuilder: (context, index) {
+                        final group = groups[index] as Map<String, dynamic>;
+                        final entries = group['entries'] as List;
+                        final writerMap =
+                            group['writer'] as Map<String, dynamic>?;
+                        final writerImageUrl =
+                            writerMap?['profileImageUrl'] as String?;
+                        final groupTitle = group['date'] as String? ??
+                            writerMap?['nickname'] as String? ??
+                            '-';
+                        final avatarLabel = groupBy == 'writer'
+                            ? (writerMap?['nickname'] as String? ?? '?')
+                            : groupTitle;
 
-                  return _GroupSection(
-                    title: groupTitle,
-                    avatarLabel: groupBy == 'writer' ? avatarLabel : null,
-                    entryCount: entries.length,
-                    children: entries.map((e) {
-                      final entry = e as Map<String, dynamic>;
-                      final writer = entry['writer'] as Map<String, dynamic>?;
-                      return _ReceivedEntryCard(
-                        content: entry['content'] as String,
-                        writerNickname: writer?['nickname'] as String?,
-                        createdAt: entry['createdAt'] as String,
-                        showWriter: groupBy == 'date',
-                      );
-                    }).toList(),
-                  );
-                },
-              );
-            },
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('오류: $e')),
-          ),
+                        return _GroupSection(
+                          title: groupTitle,
+                          avatarLabel: groupBy == 'writer' ? avatarLabel : null,
+                          avatarImageUrl:
+                              groupBy == 'writer' ? writerImageUrl : null,
+                          entryCount: entries.length,
+                          children: entries.map((e) {
+                            final entry = e as Map<String, dynamic>;
+                            final writer =
+                                entry['writer'] as Map<String, dynamic>?;
+                            return _ReceivedEntryCard(
+                              content: entry['content'] as String,
+                              writerNickname: writer?['nickname'] as String?,
+                              writerProfileImageUrl:
+                                  writer?['profileImageUrl'] as String?,
+                              createdAt: entry['createdAt'] as String,
+                              showWriter: groupBy == 'date',
+                            );
+                          }).toList(),
+                        );
+                      },
+                    );
+                  },
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Center(child: Text('오류: $e')),
+                ),
         ),
       ],
     );
   }
 }
 
-// 내가 쓴 방명록 탭
-
 class _WrittenGuestbookTab extends ConsumerWidget {
-  final AsyncValue<List<dynamic>> guestbook;
+  final AsyncValue<List<dynamic>>? guestbook; // nullable로 변경
   final String groupBy;
   final ValueChanged<String> onGroupByChanged;
 
@@ -185,46 +204,56 @@ class _WrittenGuestbookTab extends ConsumerWidget {
           onChanged: onGroupByChanged,
         ),
         Expanded(
-          child: guestbook.when(
-            data: (groups) {
-              if (groups.isEmpty) {
-                return const _EmptyState(message: '아직 쓴 방명록이 없습니다.');
-              }
-              return ListView.builder(
-                padding: const EdgeInsets.only(bottom: 80),
-                itemCount: groups.length,
-                itemBuilder: (context, index) {
-                  final group = groups[index] as Map<String, dynamic>;
-                  final entries = group['entries'] as List;
-                  final owner = group['owner'] as Map<String, dynamic>?;
-                  final ownerNickname = owner?['nickname'] as String?;
-                  final groupTitle = group['date'] as String? ??
-                      owner?['nickname'] as String? ??
-                      '-';
+          child: (guestbook == null)
+              ? const Center(child: CircularProgressIndicator())
+              : guestbook!.when(
+                  data: (groups) {
+                    if (groups.isEmpty) {
+                      return const _EmptyState(message: '아직 쓴 방명록이 없습니다.');
+                    }
+                    return ListView.builder(
+                      padding: const EdgeInsets.only(bottom: 80),
+                      itemCount: groups.length,
+                      itemBuilder: (context, index) {
+                        final group = groups[index] as Map<String, dynamic>;
+                        final entries = group['entries'] as List;
+                        final owner = group['owner'] as Map<String, dynamic>?;
+                        final ownerNickname = owner?['nickname'] as String?;
+                        final ownerImageUrl =
+                            owner?['profileImageUrl'] as String?;
+                        final groupTitle =
+                            group['date'] as String? ?? ownerNickname ?? '-';
 
-                  return _GroupSection(
-                    title: groupTitle,
-                    avatarLabel: groupBy == 'owner' ? ownerNickname : null,
-                    entryCount: entries.length,
-                    children: entries.map((e) {
-                      final entry = e as Map<String, dynamic>;
-                      final entryOwner =
-                          (entry['owner'] as Map<String, dynamic>?) ?? owner;
-                      return _WrittenEntryCard(
-                        content: entry['content'] as String,
-                        ownerNickname: entryOwner?['nickname'] as String?,
-                        ownerUsername: entryOwner?['username'] as String?,
-                        createdAt: entry['createdAt'] as String,
-                        showOwner: groupBy == 'date',
-                      );
-                    }).toList(),
-                  );
-                },
-              );
-            },
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('오류: $e')),
-          ),
+                        return _GroupSection(
+                          title: groupTitle,
+                          avatarLabel:
+                              groupBy == 'owner' ? ownerNickname : null,
+                          avatarImageUrl:
+                              groupBy == 'owner' ? ownerImageUrl : null,
+                          entryCount: entries.length,
+                          children: entries.map((e) {
+                            final entry = e as Map<String, dynamic>;
+                            final entryOwner =
+                                (entry['owner'] as Map<String, dynamic>?) ??
+                                    owner;
+                            return _WrittenEntryCard(
+                              content: entry['content'] as String,
+                              ownerNickname: entryOwner?['nickname'] as String?,
+                              ownerUsername: entryOwner?['username'] as String?,
+                              ownerProfileImageUrl:
+                                  entryOwner?['profileImageUrl'] as String?,
+                              createdAt: entry['createdAt'] as String,
+                              showOwner: groupBy == 'date',
+                            );
+                          }).toList(),
+                        );
+                      },
+                    );
+                  },
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Center(child: Text('오류: $e')),
+                ),
         ),
       ],
     );
@@ -232,7 +261,6 @@ class _WrittenGuestbookTab extends ConsumerWidget {
 }
 
 // 공통 위젯
-
 class _GroupBySelector extends StatelessWidget {
   final Map<String, String> options;
   final String selected;
@@ -267,6 +295,7 @@ class _GroupBySelector extends StatelessWidget {
 class _GroupSection extends StatelessWidget {
   final String title;
   final String? avatarLabel;
+  final String? avatarImageUrl;
   final int entryCount;
   final List<Widget> children;
 
@@ -275,6 +304,7 @@ class _GroupSection extends StatelessWidget {
     required this.entryCount,
     required this.children,
     this.avatarLabel,
+    this.avatarImageUrl,
   });
 
   @override
@@ -289,17 +319,10 @@ class _GroupSection extends StatelessWidget {
           Row(
             children: [
               if (avatarLabel != null) ...[
-                CircleAvatar(
+                _ProfileAvatar(
+                  nickname: avatarLabel!,
+                  imageUrl: avatarImageUrl,
                   radius: 14,
-                  backgroundColor: colorScheme.primaryContainer,
-                  child: Text(
-                    avatarLabel![0],
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: colorScheme.onPrimaryContainer,
-                    ),
-                  ),
                 ),
                 const SizedBox(width: 8),
               ],
@@ -340,6 +363,7 @@ class _GroupSection extends StatelessWidget {
 class _ReceivedEntryCard extends StatelessWidget {
   final String content;
   final String? writerNickname;
+  final String? writerProfileImageUrl;
   final String createdAt;
   final bool showWriter;
 
@@ -347,6 +371,7 @@ class _ReceivedEntryCard extends StatelessWidget {
     required this.content,
     required this.createdAt,
     this.writerNickname,
+    this.writerProfileImageUrl,
     this.showWriter = false,
   });
 
@@ -378,12 +403,12 @@ class _ReceivedEntryCard extends StatelessWidget {
             Row(
               children: [
                 if (showWriter && writerNickname != null) ...[
-                  Icon(
-                    Icons.person_outline,
-                    size: 13,
-                    color: Theme.of(context).colorScheme.outline,
+                  _ProfileAvatar(
+                    nickname: writerNickname!,
+                    imageUrl: writerProfileImageUrl,
+                    radius: 10,
                   ),
-                  const SizedBox(width: 3),
+                  const SizedBox(width: 5),
                   Text(
                     writerNickname!,
                     style: TextStyle(
@@ -420,6 +445,7 @@ class _WrittenEntryCard extends StatelessWidget {
   final String content;
   final String? ownerNickname;
   final String? ownerUsername;
+  final String? ownerProfileImageUrl;
   final String createdAt;
   final bool showOwner;
 
@@ -428,6 +454,7 @@ class _WrittenEntryCard extends StatelessWidget {
     required this.createdAt,
     this.ownerNickname,
     this.ownerUsername,
+    this.ownerProfileImageUrl,
     this.showOwner = false,
   });
 
@@ -452,10 +479,10 @@ class _WrittenEntryCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 항상 수신자 표시 (그룹 기준에 무관하게)
+            // 수신자 배지 — 아바타 포함
             Container(
               margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
               decoration: BoxDecoration(
                 color: colorScheme.primaryContainer,
                 borderRadius: BorderRadius.circular(6),
@@ -463,12 +490,12 @@ class _WrittenEntryCard extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.send_outlined,
-                    size: 12,
-                    color: colorScheme.onPrimaryContainer,
+                  _ProfileAvatar(
+                    nickname: ownerNickname ?? '?',
+                    imageUrl: ownerProfileImageUrl,
+                    radius: 10,
                   ),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 6),
                   Text(
                     ownerNickname != null
                         ? '$ownerNickname${ownerUsername != null ? ' (@$ownerUsername)' : ''}'
@@ -562,6 +589,55 @@ class _RequestBanner extends ConsumerWidget {
             child: const Text('작성'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ProfileAvatar extends StatelessWidget {
+  final String? imageUrl;
+  final String nickname;
+  final double radius;
+
+  const _ProfileAvatar({
+    required this.nickname,
+    this.imageUrl,
+    this.radius = 16,
+  });
+
+  String _buildImageUrl(String path) {
+    const baseUrl = String.fromEnvironment(
+      'BASE_URL',
+      defaultValue: 'http://localhost:3000/api',
+    );
+    final host = baseUrl.replaceFirst('/api', '');
+    return '$host$path';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    if (imageUrl != null) {
+      return CircleAvatar(
+        radius: radius,
+        backgroundImage: CachedNetworkImageProvider(
+          _buildImageUrl(imageUrl!),
+        ),
+        backgroundColor: colorScheme.primaryContainer,
+      );
+    }
+
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: colorScheme.primaryContainer,
+      child: Text(
+        nickname.isNotEmpty ? nickname[0] : '?',
+        style: TextStyle(
+          fontSize: radius * 0.75,
+          fontWeight: FontWeight.w500,
+          color: colorScheme.onPrimaryContainer,
+        ),
       ),
     );
   }
