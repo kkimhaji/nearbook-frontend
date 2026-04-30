@@ -102,30 +102,69 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
                   ),
                   ...requests.map((req) {
                     final requester = req['requester'] as Map<String, dynamic>;
-                    return ListTile(
-                      leading: ProfileAvatar(
-                        nickname: requester['nickname'] as String,
-                        imageUrl: requester['profileImageUrl'] as String?,
-                        radius: 22,
+                    return Card(
+                      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(
+                          color: Theme.of(context).colorScheme.outlineVariant,
+                          width: 0.5,
+                        ),
                       ),
-                      title: Text(requester['nickname'] as String),
-                      subtitle: Text('@${requester['username']}'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          TextButton(
-                            onPressed: () => ref
-                                .read(friendProvider.notifier)
-                                .acceptRequest(req['id'] as int),
-                            child: const Text('수락'),
-                          ),
-                          TextButton(
-                            onPressed: () => ref
-                                .read(friendProvider.notifier)
-                                .rejectRequest(req['id'] as int),
-                            child: const Text('거절'),
-                          ),
-                        ],
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
+                        child: Row(
+                          children: [
+                            ProfileAvatar(
+                              nickname: requester['nickname'] as String,
+                              imageUrl: requester['profileImageUrl'] as String?,
+                              radius: 24,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    requester['nickname'] as String,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '@${requester['username']}',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color:
+                                          Theme.of(context).colorScheme.outline,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                TextButton(
+                                  onPressed: () => ref
+                                      .read(friendProvider.notifier)
+                                      .acceptRequest(req['id'] as int),
+                                  child: const Text('수락'),
+                                ),
+                                TextButton(
+                                  onPressed: () => ref
+                                      .read(friendProvider.notifier)
+                                      .rejectRequest(req['id'] as int),
+                                  child: const Text('거절'),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   }),
@@ -142,17 +181,58 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
             child: friends.isEmpty
                 ? const Center(child: Text('친구가 없습니다.'))
                 : ListView.builder(
+                    padding: const EdgeInsets.only(top: 8),
                     itemCount: friends.length,
                     itemBuilder: (context, index) {
                       final friend = friends[index];
-                      return ListTile(
-                        leading: ProfileAvatar(
-                          nickname: friend.nickname,
-                          imageUrl: friend.profileImageUrl,
-                          radius: 22,
+                      return Card(
+                        margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(
+                            color: Theme.of(context).colorScheme.outlineVariant,
+                            width: 0.5,
+                          ),
                         ),
-                        title: Text(friend.nickname),
-                        subtitle: Text('@${friend.username}'),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                          child: Row(
+                            children: [
+                              ProfileAvatar(
+                                nickname: friend.nickname,
+                                imageUrl: friend.profileImageUrl,
+                                radius: 24,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      friend.nickname,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '@${friend.username}',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .outline,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       );
                     },
                   ),
