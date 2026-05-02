@@ -1,10 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/friend_repository.dart';
-import '../../../shared/models/user.dart';
+import '../../../shared/models/friend.dart';
 import '../../../shared/socket/socket_client.dart';
 import '../../../shared/socket/socket_events.dart';
 
-class FriendNotifier extends StateNotifier<List<UserModel>> {
+class FriendNotifier extends StateNotifier<List<FriendModel>> {
   final FriendRepository _repository;
 
   FriendNotifier(this._repository) : super([]) {
@@ -17,16 +17,13 @@ class FriendNotifier extends StateNotifier<List<UserModel>> {
       ..on(SocketEvents.friendRequestAccepted, (_) => fetchFriends());
   }
 
-// 소켓 연결 후 외부에서 호출할 수 있도록 public 메서드 추가
   void initSocketListeners() {
     _listenSocketEvents();
   }
 
   Future<void> fetchFriends() async {
     final data = await _repository.getFriends();
-    state = data
-        .map((f) => UserModel.fromJson(f['friend'] as Map<String, dynamic>))
-        .toList();
+    state = data.map((f) => FriendModel.fromJson(f)).toList();
   }
 
   Future<void> sendRequest(String username) async {
@@ -41,11 +38,16 @@ class FriendNotifier extends StateNotifier<List<UserModel>> {
   Future<void> rejectRequest(int friendshipId) async {
     await _repository.rejectRequest(friendshipId);
   }
+
+  Future<void> deleteFriend(int friendshipId) async {
+    await _repository.deleteFriend(friendshipId);
+    await fetchFriends();
+  }
 }
 
 final friendRepositoryProvider = Provider((ref) => FriendRepository());
 
-final friendProvider = StateNotifierProvider<FriendNotifier, List<UserModel>>(
+final friendProvider = StateNotifierProvider<FriendNotifier, List<FriendModel>>(
   (ref) => FriendNotifier(ref.watch(friendRepositoryProvider)),
 );
 

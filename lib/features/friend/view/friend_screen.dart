@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../provider/friend_provider.dart';
+import '../view/qr_scanner_screen.dart';
 import '../../../core/network/dio_exception_handler.dart';
 import '../../../shared/widgets/profile_avatar.dart';
-import '../view/qr_scanner_screen.dart';
 
 class FriendScreen extends ConsumerStatefulWidget {
   const FriendScreen({super.key});
@@ -55,39 +55,43 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
     );
   }
 
-// _showSearchDialog 아래에 메서드 추가
+  Future<void> _sendFriendRequest(String username) async {
+    try {
+      await ref.read(friendProvider.notifier).sendRequest(username);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('친구 요청을 보냈습니다.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(DioExceptionHandler.getMessage(e))),
+      );
+    }
+  }
+
   Future<void> _scanQrCode() async {
     final username = await Navigator.push<String>(
       context,
       MaterialPageRoute(builder: (_) => const QrScannerScreen()),
     );
-
     if (!mounted || username == null) return;
-
-    // 스캔된 username으로 바로 친구 요청
     await _showScannedUserDialog(username);
   }
 
   Future<void> _showScannedUserDialog(String username) async {
-    // 유저 정보 조회 후 확인 다이얼로그 표시
     try {
       final user =
           await ref.read(friendRepositoryProvider).searchUser(username);
-
       if (!mounted) return;
 
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('친구 요청'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '${user['nickname']}(@${user['username']})님께\n친구 요청을 보내시겠습니까?',
-                textAlign: TextAlign.center,
-              ),
-            ],
+          content: Text(
+            '${user['nickname']}(@${user['username']})님께\n친구 요청을 보내시겠습니까?',
+            textAlign: TextAlign.center,
           ),
           actions: [
             TextButton(
@@ -112,12 +116,33 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
     }
   }
 
-  Future<void> _sendFriendRequest(String username) async {
+  Future<void> _confirmDeleteFriend(int friendshipId, String nickname) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('친구 삭제'),
+        content: Text('$nickname님을 친구 목록에서 삭제하시겠습니까?\n상대방의 친구 목록에서도 삭제됩니다.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
     try {
-      await ref.read(friendProvider.notifier).sendRequest(username);
+      await ref.read(friendProvider.notifier).deleteFriend(friendshipId);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('친구 요청을 보냈습니다.')),
+        const SnackBar(content: Text('친구가 삭제되었습니다.')),
       );
     } catch (e) {
       if (!mounted) return;
@@ -264,8 +289,8 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
                           child: Row(
                             children: [
                               ProfileAvatar(
-                                nickname: friend.nickname,
-                                imageUrl: friend.profileImageUrl,
+                                nickname: friend.user.nickname,
+                                imageUrl: friend.user.profileImageUrl,
                                 radius: 24,
                               ),
                               const SizedBox(width: 12),
@@ -274,7 +299,7 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      friend.nickname,
+                                      friend.user.nickname,
                                       style: const TextStyle(
                                         fontWeight: FontWeight.w600,
                                         fontSize: 15,
@@ -282,7 +307,7 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      '@${friend.username}',
+                                      '@${friend.user.username}',
                                       style: TextStyle(
                                         fontSize: 13,
                                         color: Theme.of(context)
@@ -291,6 +316,15 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
                                       ),
                                     ),
                                   ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.person_remove_outlined),
+                                color: Theme.of(context).colorScheme.outline,
+                                tooltip: '친구 삭제',
+                                onPressed: () => _confirmDeleteFriend(
+                                  friend.friendshipId,
+                                  friend.user.nickname,
                                 ),
                               ),
                             ],

@@ -33,4 +33,8 @@ class FriendRepository {
         .get('/users/search', queryParameters: {'username': username});
     return Map<String, dynamic>.from(response.data as Map);
   }
+
+  Future<void> deleteFriend(int friendshipId) async {
+    await _dio.delete('/friends/$friendshipId');
+  }
 }
