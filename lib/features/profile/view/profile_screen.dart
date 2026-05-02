@@ -6,6 +6,7 @@ import '../../auth/provider/auth_provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/constants/api_constants.dart';
+import 'package:nearbook_frontend/features/profile/view/qr_code_screen.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -376,6 +377,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
                 // 계정 설정
                 _SectionHeader(title: '계정'),
+                ListTile(
+                  leading: const Icon(Icons.qr_code),
+                  title: const Text('내 QR 코드'),
+                  subtitle: const Text('QR 코드로 친구 추가'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: profile == null
+                      ? null
+                      : () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => QrCodeScreen(
+                                username: profile['username'] as String,
+                                nickname: profile['nickname'] as String,
+                              ),
+                            ),
+                          ),
+                ),
                 ListTile(
                   leading: const Icon(Icons.badge_outlined),
                   title: const Text('닉네임 변경'),

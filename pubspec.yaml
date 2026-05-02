@@ -32,6 +32,9 @@ dependencies:
 
   image_picker: ^1.1.2        # 갤러리/카메라에서 이미지 선택
   cached_network_image: ^3.4.1 # 네트워크 이미지 캐싱
+
+  qr_flutter: ^4.1.0      
+  mobile_scanner: ^5.2.3 
   
 dev_dependencies:
   flutter_test:

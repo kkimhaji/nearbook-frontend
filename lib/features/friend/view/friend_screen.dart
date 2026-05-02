@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../provider/friend_provider.dart';
 import '../../../core/network/dio_exception_handler.dart';
 import '../../../shared/widgets/profile_avatar.dart';
+import '../view/qr_scanner_screen.dart';
 
 class FriendScreen extends ConsumerStatefulWidget {
   const FriendScreen({super.key});
@@ -54,6 +55,63 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
     );
   }
 
+// _showSearchDialog 아래에 메서드 추가
+  Future<void> _scanQrCode() async {
+    final username = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (_) => const QrScannerScreen()),
+    );
+
+    if (!mounted || username == null) return;
+
+    // 스캔된 username으로 바로 친구 요청
+    await _showScannedUserDialog(username);
+  }
+
+  Future<void> _showScannedUserDialog(String username) async {
+    // 유저 정보 조회 후 확인 다이얼로그 표시
+    try {
+      final user =
+          await ref.read(friendRepositoryProvider).searchUser(username);
+
+      if (!mounted) return;
+
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('친구 요청'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${user['nickname']}(@${user['username']})님께\n친구 요청을 보내시겠습니까?',
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('취소'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('요청'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true || !mounted) return;
+      await _sendFriendRequest(username);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(DioExceptionHandler.getMessage(e))),
+      );
+    }
+  }
+
   Future<void> _sendFriendRequest(String username) async {
     try {
       await ref.read(friendProvider.notifier).sendRequest(username);
@@ -78,6 +136,11 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
       appBar: AppBar(
         title: const Text('친구'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.qr_code_scanner),
+            tooltip: 'QR 스캔',
+            onPressed: _scanQrCode,
+          ),
           IconButton(
             icon: const Icon(Icons.person_add),
             onPressed: _showSearchDialog,
