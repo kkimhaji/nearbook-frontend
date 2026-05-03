@@ -479,36 +479,36 @@ class _WrittenEntryCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 수신자 배지 — 아바타 포함
-            Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-              decoration: BoxDecoration(
-                color: colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ProfileAvatar(
-                    nickname: ownerNickname ?? '?',
-                    imageUrl: ownerProfileImageUrl,
-                    radius: 10,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    ownerNickname != null
-                        ? '$ownerNickname${ownerUsername != null ? ' (@$ownerUsername)' : ''}'
-                        : '-',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: colorScheme.onPrimaryContainer,
+            if (showOwner)
+              Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ProfileAvatar(
+                      nickname: ownerNickname ?? '?',
+                      imageUrl: ownerProfileImageUrl,
+                      radius: 10,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 6),
+                    Text(
+                      ownerNickname != null
+                          ? '$ownerNickname${ownerUsername != null ? ' (@$ownerUsername)' : ''}'
+                          : '-',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
             Text(
               content,
               style: const TextStyle(fontSize: 15, height: 1.5),
