@@ -44,31 +44,9 @@ class GuestbookNotifier extends StateNotifier<GuestbookRequestState> {
 
   void _listenSocketEvents() {
     SocketClient.instance
-      ?..on(SocketEvents.guestbookRequestReceived, (data) {
-        final map = data as Map<String, dynamic>;
-        state = state.copyWith(
-          requestId: map['requestId'] as int,
-          owner: map['owner'] as Map<String, dynamic>,
-        );
-      })
-      ..on(SocketEvents.guestbookTypingStart, (data) {
-        final map = data as Map<String, dynamic>;
-        final writer = map['writer'] as Map<String, dynamic>;
-        state = state.copyWith(
-          isTyping: true,
-          typingNickname: writer['nickname'] as String,
-        );
-      })
-      ..on(SocketEvents.guestbookTypingStop, (_) {
-        state = state.copyWith(isTyping: false, typingNickname: null);
-      })
-      ..on(SocketEvents.guestbookCompleted, (_) {
-        // 타이핑 인디케이터 초기화 + 목록 갱신 신호
-        state = state.copyWith(
-          isTyping: false,
-          typingNickname: null,
-          shouldRefresh: true, // 갱신 트리거
-        );
+      ?..on(SocketEvents.guestbookCompleted, (_) {
+        // 완료 시 방명록 목록 갱신이 필요하면 invalidate
+        // notificationProvider가 팝업 표시 담당
       });
   }
 

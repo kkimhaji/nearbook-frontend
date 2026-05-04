@@ -12,6 +12,8 @@ import '../../features/auth/view/register_screen.dart';
 import '../../features/nearby/view/nearby_screen.dart';
 import '../../features/guestbook/view/guestbook_screen.dart';
 import '../../features/friend/view/friend_screen.dart';
+import '../../shared/notifications/notification_provider.dart';
+import '../../shared/notifications/notification_overlay.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -80,7 +82,7 @@ class _MainShellState extends ConsumerState<MainShell> {
   Future<void> _initSocket() async {
     await SocketClient.connect();
     ref.read(friendProvider.notifier).initSocketListeners();
-    ref.read(guestbookProvider.notifier).initSocketListeners();
+    ref.read(notificationProvider.notifier).listenSocketEvents();
   }
 
   @override
@@ -93,7 +95,12 @@ class _MainShellState extends ConsumerState<MainShell> {
           onPressed: () => context.push('/profile'),
         ),
       ),
-      body: widget.child,
+      body: Stack(
+        children: [
+          widget.child,
+          const NotificationOverlay(), // 전역 오버레이
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {

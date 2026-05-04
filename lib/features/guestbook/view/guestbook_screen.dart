@@ -37,9 +37,6 @@ class _GuestbookScreenState extends ConsumerState<GuestbookScreen>
 
   @override
   Widget build(BuildContext context) {
-    final guestbookState = ref.watch(guestbookProvider);
-
-    // 현재 탭에 해당하는 데이터만 watch
     final receivedGuestbook = _currentTabIndex == 0
         ? ref.watch(myGuestbookProvider(_receivedGroupBy))
         : null;
@@ -58,48 +55,21 @@ class _GuestbookScreenState extends ConsumerState<GuestbookScreen>
           ],
         ),
       ),
-      body: Stack(
+      body: TabBarView(
+        controller: _tabController,
         children: [
-          TabBarView(
-            controller: _tabController,
-            children: [
-              _ReceivedGuestbookTab(
-                guestbook: receivedGuestbook,
-                groupBy: _receivedGroupBy,
-                onGroupByChanged: (v) => setState(() => _receivedGroupBy = v),
-              ),
-              _WrittenGuestbookTab(
-                guestbook: writtenGuestbook,
-                groupBy: _writtenGroupBy,
-                onGroupByChanged: (v) => setState(() => _writtenGroupBy = v),
-              ),
-            ],
+          _ReceivedGuestbookTab(
+            guestbook: receivedGuestbook,
+            groupBy: _receivedGroupBy,
+            onGroupByChanged: (v) => setState(() => _receivedGroupBy = v),
           ),
-          if (guestbookState.isTyping)
-            Positioned(
-              bottom: 16,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.black87,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '${guestbookState.typingNickname}님이 작성 중...',
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                ),
-              ),
-            ),
+          _WrittenGuestbookTab(
+            guestbook: writtenGuestbook,
+            groupBy: _writtenGroupBy,
+            onGroupByChanged: (v) => setState(() => _writtenGroupBy = v),
+          ),
         ],
       ),
-      bottomSheet: guestbookState.requestId != null
-          ? _RequestBanner(state: guestbookState)
-          : null,
     );
   }
 }
