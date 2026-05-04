@@ -6,6 +6,7 @@ import '../../../core/network/dio_exception_handler.dart';
 import '../../../shared/socket/socket_client.dart';
 import '../../../shared/socket/socket_events.dart';
 import '../../../shared/models/user.dart';
+import '../../../shared/widgets/profile_avatar.dart';
 
 class NearbyScreen extends ConsumerStatefulWidget {
   const NearbyScreen({super.key});
@@ -154,8 +155,10 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
               itemBuilder: (context, index) {
                 final user = state.nearbyUsers[index];
                 return ListTile(
-                  leading: CircleAvatar(
-                    child: Text(user.nickname[0]),
+                  leading: ProfileAvatar(
+                    nickname: user.nickname,
+                    imageUrl: user.profileImageUrl,
+                    radius: 22,
                   ),
                   title: Text(user.nickname),
                   subtitle: Text('@${user.username}'),

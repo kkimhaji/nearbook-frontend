@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../provider/guestbook_provider.dart';
+import '../../../shared/widgets/profile_avatar.dart';
 
 class WriteScreen extends ConsumerStatefulWidget {
   final int requestId;
@@ -74,7 +75,18 @@ class _WriteScreenState extends ConsumerState<WriteScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('$ownerNickname님께 방명록 쓰기'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ProfileAvatar(
+              nickname: ownerNickname,
+              imageUrl: widget.owner['profileImageUrl'] as String?,
+              radius: 16,
+            ),
+            const SizedBox(width: 8),
+            Text('$ownerNickname님께'),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: _submit,
@@ -84,46 +96,6 @@ class _WriteScreenState extends ConsumerState<WriteScreen> {
       ),
       body: Column(
         children: [
-          // 방명록 대상자 정보 헤더
-          Container(
-            padding: const EdgeInsets.all(16),
-            color: Colors.white,
-            child: Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor:
-                      Theme.of(context).colorScheme.primaryContainer,
-                  child: Text(
-                    ownerNickname[0].toUpperCase(),
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      ownerNickname,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                      ),
-                    ),
-                    const Text(
-                      '에게 방명록을 남겨주세요',
-                      style: TextStyle(
-                        color: Color(0xFF999999),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
           const Divider(height: 1),
           Expanded(
             child: Padding(
