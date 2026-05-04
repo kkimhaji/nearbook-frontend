@@ -131,46 +131,60 @@ class _ReceivedGuestbookTab extends ConsumerWidget {
               : guestbook!.when(
                   data: (groups) {
                     if (groups.isEmpty) {
-                      return const _EmptyState(message: '아직 받은 방명록이 없습니다.');
+                      return RefreshIndicator(
+                        onRefresh: () async =>
+                            ref.invalidate(myGuestbookProvider(groupBy)),
+                        child: ListView(
+                          children: const [
+                            SizedBox(height: 120),
+                            _EmptyState(message: '아직 받은 방명록이 없습니다.'),
+                          ],
+                        ),
+                      );
                     }
-                    return ListView.builder(
-                      padding: const EdgeInsets.only(bottom: 80),
-                      itemCount: groups.length,
-                      itemBuilder: (context, index) {
-                        final group = groups[index] as Map<String, dynamic>;
-                        final entries = group['entries'] as List;
-                        final writerMap =
-                            group['writer'] as Map<String, dynamic>?;
-                        final writerImageUrl =
-                            writerMap?['profileImageUrl'] as String?;
-                        final groupTitle = group['date'] as String? ??
-                            writerMap?['nickname'] as String? ??
-                            '-';
-                        final avatarLabel = groupBy == 'writer'
-                            ? (writerMap?['nickname'] as String? ?? '?')
-                            : groupTitle;
+                    return RefreshIndicator(
+                      onRefresh: () async =>
+                          ref.invalidate(myGuestbookProvider(groupBy)),
+                      child: ListView.builder(
+                        padding: const EdgeInsets.only(bottom: 80),
+                        itemCount: groups.length,
+                        itemBuilder: (context, index) {
+                          final group = groups[index] as Map<String, dynamic>;
+                          final entries = group['entries'] as List;
+                          final writerMap =
+                              group['writer'] as Map<String, dynamic>?;
+                          final writerImageUrl =
+                              writerMap?['profileImageUrl'] as String?;
+                          final groupTitle = group['date'] as String? ??
+                              writerMap?['nickname'] as String? ??
+                              '-';
+                          final avatarLabel = groupBy == 'writer'
+                              ? (writerMap?['nickname'] as String? ?? '?')
+                              : groupTitle;
 
-                        return _GroupSection(
-                          title: groupTitle,
-                          avatarLabel: groupBy == 'writer' ? avatarLabel : null,
-                          avatarImageUrl:
-                              groupBy == 'writer' ? writerImageUrl : null,
-                          entryCount: entries.length,
-                          children: entries.map((e) {
-                            final entry = e as Map<String, dynamic>;
-                            final writer =
-                                entry['writer'] as Map<String, dynamic>?;
-                            return _ReceivedEntryCard(
-                              content: entry['content'] as String,
-                              writerNickname: writer?['nickname'] as String?,
-                              writerProfileImageUrl:
-                                  writer?['profileImageUrl'] as String?,
-                              createdAt: entry['createdAt'] as String,
-                              showWriter: groupBy == 'date',
-                            );
-                          }).toList(),
-                        );
-                      },
+                          return _GroupSection(
+                            title: groupTitle,
+                            avatarLabel:
+                                groupBy == 'writer' ? avatarLabel : null,
+                            avatarImageUrl:
+                                groupBy == 'writer' ? writerImageUrl : null,
+                            entryCount: entries.length,
+                            children: entries.map((e) {
+                              final entry = e as Map<String, dynamic>;
+                              final writer =
+                                  entry['writer'] as Map<String, dynamic>?;
+                              return _ReceivedEntryCard(
+                                content: entry['content'] as String,
+                                writerNickname: writer?['nickname'] as String?,
+                                writerProfileImageUrl:
+                                    writer?['profileImageUrl'] as String?,
+                                createdAt: entry['createdAt'] as String,
+                                showWriter: groupBy == 'date',
+                              );
+                            }).toList(),
+                          );
+                        },
+                      ),
                     );
                   },
                   loading: () =>
@@ -209,45 +223,60 @@ class _WrittenGuestbookTab extends ConsumerWidget {
               : guestbook!.when(
                   data: (groups) {
                     if (groups.isEmpty) {
-                      return const _EmptyState(message: '아직 쓴 방명록이 없습니다.');
+                      return RefreshIndicator(
+                        onRefresh: () async =>
+                            ref.invalidate(writtenGuestbookProvider(groupBy)),
+                        child: ListView(
+                          children: const [
+                            SizedBox(height: 120),
+                            _EmptyState(message: '아직 쓴 방명록이 없습니다.'),
+                          ],
+                        ),
+                      );
                     }
-                    return ListView.builder(
-                      padding: const EdgeInsets.only(bottom: 80),
-                      itemCount: groups.length,
-                      itemBuilder: (context, index) {
-                        final group = groups[index] as Map<String, dynamic>;
-                        final entries = group['entries'] as List;
-                        final owner = group['owner'] as Map<String, dynamic>?;
-                        final ownerNickname = owner?['nickname'] as String?;
-                        final ownerImageUrl =
-                            owner?['profileImageUrl'] as String?;
-                        final groupTitle =
-                            group['date'] as String? ?? ownerNickname ?? '-';
+                    return RefreshIndicator(
+                      onRefresh: () async =>
+                          ref.invalidate(writtenGuestbookProvider(groupBy)),
+                      child: ListView.builder(
+                        padding: const EdgeInsets.only(bottom: 80),
+                        itemCount: groups.length,
+                        itemBuilder: (context, index) {
+                          final group = groups[index] as Map<String, dynamic>;
+                          final entries = group['entries'] as List;
+                          final owner = group['owner'] as Map<String, dynamic>?;
+                          final ownerNickname = owner?['nickname'] as String?;
+                          final ownerImageUrl =
+                              owner?['profileImageUrl'] as String?;
+                          final groupTitle =
+                              group['date'] as String? ?? ownerNickname ?? '-';
 
-                        return _GroupSection(
-                          title: groupTitle,
-                          avatarLabel:
-                              groupBy == 'owner' ? ownerNickname : null,
-                          avatarImageUrl:
-                              groupBy == 'owner' ? ownerImageUrl : null,
-                          entryCount: entries.length,
-                          children: entries.map((e) {
-                            final entry = e as Map<String, dynamic>;
-                            final entryOwner =
-                                (entry['owner'] as Map<String, dynamic>?) ??
-                                    owner;
-                            return _WrittenEntryCard(
-                              content: entry['content'] as String,
-                              ownerNickname: entryOwner?['nickname'] as String?,
-                              ownerUsername: entryOwner?['username'] as String?,
-                              ownerProfileImageUrl:
-                                  entryOwner?['profileImageUrl'] as String?,
-                              createdAt: entry['createdAt'] as String,
-                              showOwner: groupBy == 'date',
-                            );
-                          }).toList(),
-                        );
-                      },
+                          return _GroupSection(
+                            title: groupTitle,
+                            avatarLabel:
+                                groupBy == 'owner' ? ownerNickname : null,
+                            avatarImageUrl:
+                                groupBy == 'owner' ? ownerImageUrl : null,
+                            entryCount: entries.length,
+                            children: entries.map((e) {
+                              final entry = e as Map<String, dynamic>;
+                              final entryOwner =
+                                  (entry['owner'] as Map<String, dynamic>?) ??
+                                      owner;
+                              return _WrittenEntryCard(
+                                content: entry['content'] as String,
+                                ownerNickname:
+                                    entryOwner?['nickname'] as String?,
+                                ownerUsername:
+                                    entryOwner?['username'] as String?,
+                                ownerProfileImageUrl:
+                                    entryOwner?['profileImageUrl'] as String?,
+                                createdAt: entry['createdAt'] as String,
+                                showOwner: groupBy == 'date',
+                              );
+                            }).toList(),
+                          );
+                        },
+                      ),
                     );
                   },
                   loading: () =>
