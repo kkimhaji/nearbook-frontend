@@ -20,7 +20,8 @@ class WriteScreen extends ConsumerStatefulWidget {
 class _WriteScreenState extends ConsumerState<WriteScreen> {
   final _contentController = TextEditingController();
   bool _isTyping = false;
-  bool _submitted = false; // 정상 제출 여부 추적
+  bool _submitted = false;
+  bool _leavingHandled = false;
 
   String get _ownerId => widget.owner['id'] as String;
   String get _ownerNickname => widget.owner['nickname'] as String? ?? '';
@@ -28,7 +29,6 @@ class _WriteScreenState extends ConsumerState<WriteScreen> {
   @override
   void initState() {
     super.initState();
-    // 작성 시작 상태로 변경
     ref.read(guestbookRepositoryProvider).markAsWriting(widget.requestId);
     _contentController.addListener(_onTextChanged);
   }
@@ -37,44 +37,41 @@ class _WriteScreenState extends ConsumerState<WriteScreen> {
   void dispose() {
     _contentController.removeListener(_onTextChanged);
     _contentController.dispose();
-
-    // 제출 없이 이탈한 경우 처리
-    if (!_submitted) {
-      _handleAbandon();
-    }
-
     super.dispose();
   }
 
-  // dispose는 async 불가 → fire-and-forget으로 처리
-  void _handleAbandon() {
-    // 타이핑 중이었다면 stop 전송
+  Future<void> _handleExit() async {
+    if (_leavingHandled) return;
+    _leavingHandled = true;
+
     if (_isTyping) {
+      _isTyping = false;
       ref.read(guestbookProvider.notifier).sendTypingStop(
             _ownerId,
             widget.requestId,
           );
     }
 
-    // writing → pending 으로 복구
-    ref
-        .read(guestbookRepositoryProvider)
-        .cancelWriting(widget.requestId)
-        .catchError((_) {});
-    // 오류가 발생해도 UI에는 영향 없으므로 무시
+    try {
+      await ref
+          .read(guestbookRepositoryProvider)
+          .cancelWriting(widget.requestId);
+    } catch (_) {}
   }
 
   void _onTextChanged() {
     if (_contentController.text.isNotEmpty && !_isTyping) {
       _isTyping = true;
-      ref
-          .read(guestbookProvider.notifier)
-          .sendTypingStart(_ownerId, widget.requestId);
+      ref.read(guestbookProvider.notifier).sendTypingStart(
+            _ownerId,
+            widget.requestId,
+          );
     } else if (_contentController.text.isEmpty && _isTyping) {
       _isTyping = false;
-      ref
-          .read(guestbookProvider.notifier)
-          .sendTypingStop(_ownerId, widget.requestId);
+      ref.read(guestbookProvider.notifier).sendTypingStop(
+            _ownerId,
+            widget.requestId,
+          );
     }
   }
 
@@ -82,11 +79,11 @@ class _WriteScreenState extends ConsumerState<WriteScreen> {
     final content = _contentController.text.trim();
     if (content.isEmpty) return;
 
-    // 타이핑 종료 알림
     if (_isTyping) {
-      ref
-          .read(guestbookProvider.notifier)
-          .sendTypingStop(_ownerId, widget.requestId);
+      ref.read(guestbookProvider.notifier).sendTypingStop(
+            _ownerId,
+            widget.requestId,
+          );
       _isTyping = false;
     }
 
@@ -94,45 +91,56 @@ class _WriteScreenState extends ConsumerState<WriteScreen> {
         .read(guestbookProvider.notifier)
         .submitGuestbook(widget.requestId, content);
 
-    _submitted = true; // 정상 제출 마킹
-
+    _submitted = true;
     if (!mounted) return;
     Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ProfileAvatar(
-              nickname: _ownerNickname,
-              imageUrl: widget.owner['profileImageUrl'] as String?,
-              radius: 16,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        if (_submitted) return;
+
+        await _handleExit();
+        if (mounted) {
+          Navigator.pop(context);
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ProfileAvatar(
+                nickname: _ownerNickname,
+                imageUrl: widget.owner['profileImageUrl'] as String?,
+                radius: 16,
+              ),
+              const SizedBox(width: 8),
+              Text('$_ownerNickname님께'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: _submit,
+              child: const Text('제출'),
             ),
-            const SizedBox(width: 8),
-            Text('$_ownerNickname님께'),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: _submit,
-            child: const Text('제출'),
-          ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: TextField(
-          controller: _contentController,
-          maxLines: null,
-          expands: true,
-          autofocus: true,
-          decoration: InputDecoration(
-            hintText: '$_ownerNickname님에게 남길 말을 작성하세요...',
-            border: InputBorder.none,
+        body: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: TextField(
+            controller: _contentController,
+            maxLines: null,
+            expands: true,
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: '$_ownerNickname님에게 남길 말을 작성하세요...',
+              border: InputBorder.none,
+            ),
           ),
         ),
       ),
