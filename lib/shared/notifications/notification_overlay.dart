@@ -247,8 +247,8 @@ class _NotificationBannerState extends ConsumerState<_NotificationBanner>
               _ActionButton(
                 label: '작성',
                 onTap: () async {
-                  _dismiss();
                   if (requestId != null && owner != null) {
+                    // dismiss 하지 않고 먼저 이동
                     await Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -258,6 +258,9 @@ class _NotificationBannerState extends ConsumerState<_NotificationBanner>
                         ),
                       ),
                     );
+                    // WriteScreen에서 돌아온 후 dismiss
+                    // (제출했든 이탈했든 — 이탈 시 서버가 재알림을 보내므로 새 notification이 추가됨)
+                    _dismiss();
                   }
                 },
               ),
@@ -338,8 +341,6 @@ class _NotificationBannerState extends ConsumerState<_NotificationBanner>
     );
   }
 }
-
-// ─── 공통 컴포넌트 ─────────────────────────────────────────────
 
 class _BannerCard extends StatelessWidget {
   final Color color;

@@ -40,4 +40,8 @@ class GuestbookRepository {
     );
     return response.data as List;
   }
+
+  Future<void> cancelWriting(int requestId) async {
+    await _dio.patch('/guestbook/request/$requestId/cancel-writing');
+  }
 }
