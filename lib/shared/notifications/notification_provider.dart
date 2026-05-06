@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 import 'notification_model.dart';
 import '../socket/socket_client.dart';
 import '../socket/socket_events.dart';

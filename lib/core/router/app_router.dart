@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nearbook_frontend/features/friend/provider/friend_provider.dart';
-import 'package:nearbook_frontend/features/guestbook/provider/guestbook_provider.dart';
 import 'package:nearbook_frontend/features/profile/view/profile_screen.dart';
 import 'package:nearbook_frontend/shared/socket/socket_client.dart';
 import '../../core/storage/secure_storage.dart';
