@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../provider/nearby_provider.dart';
 import '../../guestbook/data/guestbook_repository.dart';
+import '../../friend/data/friend_repository.dart'; // 추가
 import '../../../core/network/dio_exception_handler.dart';
 import '../../../shared/socket/socket_client.dart';
 import '../../../shared/socket/socket_events.dart';
@@ -17,13 +18,13 @@ class NearbyScreen extends ConsumerStatefulWidget {
 
 class _NearbyScreenState extends ConsumerState<NearbyScreen> {
   bool _isActive = true;
-  late NearbyNotifier _notifier; // notifier 미리 저장
+  late NearbyNotifier _notifier;
 
   @override
   void initState() {
     super.initState();
     _isActive = true;
-    _notifier = ref.read(nearbyProvider.notifier); // initState에서 저장
+    _notifier = ref.read(nearbyProvider.notifier);
     debugPrint('[NearbyScreen] initState 호출');
     _init();
   }
@@ -32,7 +33,7 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
   void dispose() {
     _isActive = false;
     SocketClient.instance?.off(SocketEvents.bleDetectedResult);
-    _notifier.stopScan(); // ref 대신 저장된 notifier 직접 사용
+    _notifier.stopScan();
     super.dispose();
   }
 
@@ -81,7 +82,7 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
             .toList();
         debugPrint(
             '[NearbyScreen][Socket] 감지된 유저: ${users.map((u) => u.username).toList()}');
-        _notifier.updateNearbyUsers(users); // ref 대신 저장된 notifier 사용
+        _notifier.updateNearbyUsers(users);
       } catch (e) {
         debugPrint('[NearbyScreen][Socket] 파싱 오류: $e');
       }
@@ -96,6 +97,22 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('방명록 요청을 보냈습니다.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(DioExceptionHandler.getMessage(e))),
+      );
+    }
+  }
+
+  // 추가
+  Future<void> _sendFriendRequest(String receiverUsername) async {
+    try {
+      await FriendRepository().sendRequest(receiverUsername);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('친구 요청을 보냈습니다.')),
       );
     } catch (e) {
       if (!mounted) return;
@@ -151,24 +168,95 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
               ),
             )
           : ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: state.nearbyUsers.length,
               itemBuilder: (context, index) {
                 final user = state.nearbyUsers[index];
-                return ListTile(
-                  leading: ProfileAvatar(
-                    nickname: user.nickname,
-                    imageUrl: user.profileImageUrl,
-                    radius: 22,
-                  ),
-                  title: Text(user.nickname),
-                  subtitle: Text('@${user.username}'),
-                  trailing: ElevatedButton(
-                    onPressed: () => _requestGuestbook(user.username),
-                    child: const Text('방명록 요청'),
-                  ),
+                return _NearbyUserCard(
+                  user: user,
+                  onGuestbookRequest: () => _requestGuestbook(user.username),
+                  onFriendRequest: () => _sendFriendRequest(user.username),
                 );
               },
             ),
+    );
+  }
+}
+
+class _NearbyUserCard extends StatelessWidget {
+  final UserModel user;
+  final VoidCallback onGuestbookRequest;
+  final VoidCallback onFriendRequest;
+
+  const _NearbyUserCard({
+    required this.user,
+    required this.onGuestbookRequest,
+    required this.onFriendRequest,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                ProfileAvatar(
+                  nickname: user.nickname,
+                  imageUrl: user.profileImageUrl,
+                  radius: 24,
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      user.nickname,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      '@${user.username}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.outline,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: user.isFriend
+                  ? [
+                      ElevatedButton(
+                        onPressed: onGuestbookRequest,
+                        child: const Text('방명록 요청'),
+                      ),
+                    ]
+                  : [
+                      OutlinedButton(
+                        onPressed: onFriendRequest,
+                        child: const Text('친구 신청'),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: onGuestbookRequest,
+                        child: const Text('방명록 요청'),
+                      ),
+                    ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

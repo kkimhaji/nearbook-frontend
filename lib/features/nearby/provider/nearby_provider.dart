@@ -91,17 +91,6 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
 
     _scanResultsSub = FlutterBluePlus.scanResults.listen((results) {
       if (results.isEmpty) return;
-      // debugPrint('[BLE][Scan] 결과: ${results.length}개');
-      // for (final r in results) {
-      //   debugPrint(
-      //     '[BLE][Scan] → remoteId: ${r.device.remoteId} | '
-      //     'RSSI: ${r.rssi} | '
-      //     'localName: "${r.advertisementData.localName}" | '
-      //     'serviceUUIDs: ${r.advertisementData.serviceUuids} | '
-      //     'serviceDataKeys: ${r.advertisementData.serviceData.keys.toList()} | '
-      //     'manufacturerData: ${r.advertisementData.manufacturerData}', // 추가
-      //   );
-      // }
       if (!mounted) return;
       _onScanResult(results);
     });
