@@ -71,7 +71,7 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
     }
 
     if (!mounted) return;
-    state = state.copyWith(isScanning: true);
+    state = state.copyWith(isScanning: true, nearbyUsers: []);
     _detectedTokens.clear();
 
     await Future.delayed(const Duration(milliseconds: 500));
