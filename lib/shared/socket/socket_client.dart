@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../../../core/constants/api_constants.dart';
 import '../../../core/storage/secure_storage.dart';
@@ -18,21 +17,12 @@ class SocketClient {
           .setTransports(['websocket'])
           .setAuth({'token': token})
           .disableAutoConnect()
+          .enableReconnection() // 재연결 활성화
+          .setReconnectionAttempts(10) // 최대 재시도 횟수
+          .setReconnectionDelay(2000) // 재시도 간격 2초
+          .setReconnectionDelayMax(10000) // 최대 대기 10초
           .build(),
     );
-
-    // 연결 이벤트 로그
-    _socket!.onConnect((_) {
-      debugPrint('[Socket] 연결 성공 ✅ id: ${_socket?.id}');
-    });
-
-    _socket!.onDisconnect((_) {
-      debugPrint('[Socket] 연결 해제');
-    });
-
-    _socket!.onConnectError((e) {
-      debugPrint('[Socket] 연결 오류 ❌: $e');
-    });
 
     _socket!.connect();
   }

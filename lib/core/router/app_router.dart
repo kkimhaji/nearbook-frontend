@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nearbook_frontend/features/friend/provider/friend_provider.dart';
+import 'package:nearbook_frontend/features/guestbook/provider/guestbook_provider.dart';
 import 'package:nearbook_frontend/features/profile/view/profile_screen.dart';
 import 'package:nearbook_frontend/shared/socket/socket_client.dart';
 import '../../core/storage/secure_storage.dart';
@@ -63,25 +64,39 @@ class MainShell extends ConsumerStatefulWidget {
   ConsumerState<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends ConsumerState<MainShell> {
+class _MainShellState extends ConsumerState<MainShell>
+    with WidgetsBindingObserver {
   int _selectedIndex = 0;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initSocket();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     SocketClient.disconnect();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // 포그라운드 복귀 시 소켓 연결 확인
+      if (!SocketClient.isConnected) {
+        _initSocket();
+      }
+    }
   }
 
   Future<void> _initSocket() async {
     await SocketClient.connect();
     ref.read(friendProvider.notifier).initSocketListeners();
     ref.read(notificationProvider.notifier).listenSocketEvents();
+    ref.read(guestbookProvider.notifier).initSocketListeners();
   }
 
   @override
