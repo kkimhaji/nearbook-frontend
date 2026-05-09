@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nearbook_frontend/features/guestbook/data/guestbook_repository.dart';
-import 'package:nearbook_frontend/features/guestbook/view/write_screen.dart';
 import '../provider/guestbook_provider.dart';
 import '../../../shared/widgets/profile_avatar.dart';
 
@@ -595,50 +594,6 @@ class _EmptyState extends StatelessWidget {
           Icon(Icons.book_outlined, size: 48, color: Colors.grey.shade400),
           const SizedBox(height: 12),
           Text(message, style: const TextStyle(color: Colors.grey)),
-        ],
-      ),
-    );
-  }
-}
-
-class _RequestBanner extends ConsumerWidget {
-  final GuestbookRequestState state;
-  const _RequestBanner({required this.state});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final ownerNickname = state.owner?['nickname'] as String? ?? '알 수 없음';
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      color: Theme.of(context).colorScheme.primaryContainer,
-      child: Row(
-        children: [
-          Expanded(child: Text('$ownerNickname님이 방명록을 요청했습니다.')),
-          TextButton(
-            onPressed: () {
-              if (state.requestId == null) return;
-              ref
-                  .read(guestbookProvider.notifier)
-                  .rejectRequest(state.requestId!);
-            },
-            child: const Text('거절'),
-          ),
-          TextButton(
-            onPressed: () {
-              if (state.requestId == null) return;
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => WriteScreen(
-                    requestId: state.requestId!,
-                    owner: state.owner!,
-                  ),
-                ),
-              );
-            },
-            child: const Text('작성'),
-          ),
         ],
       ),
     );
