@@ -50,4 +50,10 @@ class UserRepository {
   Future<void> deleteAccount() async {
     await _dio.delete('/users/me');
   }
+
+  Future<void> updateGuestbookVisibility(String guestbookVisibility) async {
+    await _dio.patch('/users/guestbook-visibility', data: {
+      'guestbookVisibility': guestbookVisibility,
+    });
+  }
 }

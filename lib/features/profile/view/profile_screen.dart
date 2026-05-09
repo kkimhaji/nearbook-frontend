@@ -174,6 +174,57 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
+  Future<void> _showGuestbookVisibilityDialog(String current) async {
+    final options = {
+      'private': '비공개',
+      'friends_only': '친구에게 공개',
+    };
+
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('방명록 공개 설정'),
+        children: options.entries.map((e) {
+          return SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, e.key),
+            child: Row(
+              children: [
+                if (current == e.key)
+                  const Icon(Icons.check, size: 18)
+                else
+                  const SizedBox(width: 18),
+                const SizedBox(width: 8),
+                Text(e.value),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+
+    if (selected == null || selected == current) return;
+    final success = await ref
+        .read(profileProvider.notifier)
+        .updateGuestbookVisibility(selected);
+    _showMessage(
+      success
+          ? '방명록 공개 설정이 변경되었습니다.'
+          : ref.read(profileProvider).errorMessage ?? '오류가 발생했습니다.',
+      isError: !success,
+    );
+  }
+
+  String _guestbookVisibilityLabel(String? value) {
+    switch (value) {
+      case 'private':
+        return '비공개';
+      case 'friends_only':
+        return '친구에게 공개';
+      default:
+        return '-';
+    }
+  }
+
   Future<void> _showDeleteAccountDialog() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -427,6 +478,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ? null
                       : () => _showBleVisibilityDialog(
                             profile['bleVisibility'] as String,
+                          ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.book_outlined),
+                  title: const Text('방명록 공개 설정'),
+                  subtitle: Text(
+                    _guestbookVisibilityLabel(
+                        profile?['guestbookVisibility'] as String?),
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: profile == null
+                      ? null
+                      : () => _showGuestbookVisibilityDialog(
+                            profile['guestbookVisibility'] as String,
                           ),
                 ),
 

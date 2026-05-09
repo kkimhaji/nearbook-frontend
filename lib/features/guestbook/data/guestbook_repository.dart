@@ -44,4 +44,15 @@ class GuestbookRepository {
   Future<void> cancelWriting(int requestId) async {
     await _dio.patch('/guestbook/request/$requestId/cancel-writing');
   }
+
+  Future<void> updateEntryVisibility(int entryId, String visibility) async {
+    await _dio.patch('/guestbook/entries/$entryId/visibility', data: {
+      'visibility': visibility,
+    });
+  }
+
+  Future<Map<String, dynamic>> getFriendGuestbook(String username) async {
+    final response = await _dio.get('/guestbook/friend/$username');
+    return Map<String, dynamic>.from(response.data as Map);
+  }
 }

@@ -169,6 +169,26 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
       return false;
     }
   }
+
+  Future<bool> updateGuestbookVisibility(String visibility) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      await _repository.updateGuestbookVisibility(visibility);
+      final updated = Map<String, dynamic>.from(state.profile ?? {});
+      updated['guestbookVisibility'] = visibility;
+      state = state.copyWith(
+        profile: updated,
+        isLoading: false,
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: DioExceptionHandler.getMessage(e),
+      );
+      return false;
+    }
+  }
 }
 
 final userRepositoryProvider = Provider((ref) => UserRepository());

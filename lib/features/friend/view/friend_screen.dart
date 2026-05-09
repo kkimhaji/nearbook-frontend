@@ -5,6 +5,7 @@ import '../provider/friend_provider.dart';
 import '../view/qr_scanner_screen.dart';
 import '../../../core/network/dio_exception_handler.dart';
 import '../../../shared/widgets/profile_avatar.dart';
+import '../../guestbook/view/friend_guestbook_screen.dart';
 
 class FriendScreen extends ConsumerStatefulWidget {
   const FriendScreen({super.key});
@@ -335,8 +336,6 @@ class _RequestCard extends StatelessWidget {
   }
 }
 
-// ─── 친구 카드 ────────────────────────────────────────────────
-
 class _FriendCard extends StatelessWidget {
   final FriendModel friend;
   final VoidCallback onDelete;
@@ -358,45 +357,58 @@ class _FriendCard extends StatelessWidget {
           width: 0.5,
         ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            ProfileAvatar(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => FriendGuestbookScreen(
+              username: friend.user.username,
               nickname: friend.user.nickname,
-              imageUrl: friend.user.profileImageUrl,
-              radius: 24,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    friend.user.nickname,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '@${friend.user.username}',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Theme.of(context).colorScheme.outline,
-                    ),
-                  ),
-                ],
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              ProfileAvatar(
+                nickname: friend.user.nickname,
+                imageUrl: friend.user.profileImageUrl,
+                radius: 24,
               ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.person_remove_outlined),
-              color: Theme.of(context).colorScheme.outline,
-              tooltip: '친구 삭제',
-              onPressed: onDelete,
-            ),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      friend.user.nickname,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '@${friend.user.username}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.person_remove_outlined),
+                color: Theme.of(context).colorScheme.outline,
+                tooltip: '친구 삭제',
+                onPressed: onDelete,
+              ),
+              const Icon(Icons.chevron_right, size: 18),
+            ],
+          ),
         ),
       ),
     );

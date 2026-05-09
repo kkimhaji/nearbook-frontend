@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nearbook_frontend/features/guestbook/data/guestbook_repository.dart';
 import 'package:nearbook_frontend/features/guestbook/view/write_screen.dart';
 import '../provider/guestbook_provider.dart';
 import '../../../shared/widgets/profile_avatar.dart';
@@ -150,6 +151,30 @@ class _ReceivedGuestbookTab extends ConsumerWidget {
                                     writer?['profileImageUrl'] as String?,
                                 createdAt: entry['createdAt'] as String,
                                 showWriter: groupBy == 'date',
+                                entryId: entry['id'] as int, // 추가
+                                visibility: entry['visibility'] as String? ??
+                                    'private', // 추가
+                                onVisibilityToggle: () async {
+                                  // 추가
+                                  final currentVisibility =
+                                      entry['visibility'] as String? ??
+                                          'private';
+                                  final newVisibility =
+                                      currentVisibility == 'friends_only'
+                                          ? 'private'
+                                          : 'friends_only';
+                                  try {
+                                    await GuestbookRepository()
+                                        .updateEntryVisibility(
+                                      entry['id'] as int,
+                                      newVisibility,
+                                    );
+                                    ref.invalidate(
+                                        myGuestbookProvider(groupBy));
+                                  } catch (e) {
+                                    // 에러 처리 — ConsumerWidget이므로 context 사용 가능
+                                  }
+                                },
                               );
                             }).toList(),
                           );
@@ -365,10 +390,16 @@ class _ReceivedEntryCard extends StatelessWidget {
   final String? writerProfileImageUrl;
   final String createdAt;
   final bool showWriter;
+  final int entryId;
+  final String visibility;
+  final VoidCallback onVisibilityToggle;
 
   const _ReceivedEntryCard({
     required this.content,
     required this.createdAt,
+    required this.entryId,
+    required this.visibility,
+    required this.onVisibilityToggle,
     this.writerNickname,
     this.writerProfileImageUrl,
     this.showWriter = false,
@@ -378,7 +409,7 @@ class _ReceivedEntryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final dateStr =
         createdAt.length >= 10 ? createdAt.substring(0, 10) : createdAt;
-
+    final isPublic = visibility == 'friends_only';
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       elevation: 0,
@@ -394,9 +425,30 @@ class _ReceivedEntryCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              content,
-              style: const TextStyle(fontSize: 15, height: 1.5),
+            Row(
+              // 추가 — 내용 + 자물쇠 아이콘을 한 줄에
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    content,
+                    style: const TextStyle(fontSize: 15, height: 1.5),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(
+                    isPublic ? Icons.lock_open_outlined : Icons.lock_outline,
+                    size: 18,
+                    color: isPublic
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context).colorScheme.outline,
+                  ),
+                  tooltip: isPublic ? '친구에게 공개 중' : '비공개',
+                  onPressed: onVisibilityToggle,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
             ),
             const SizedBox(height: 10),
             Row(
