@@ -4,8 +4,8 @@ import '../data/guestbook_repository.dart';
 import '../../../core/network/dio_exception_handler.dart';
 import '../../../shared/widgets/profile_avatar.dart';
 
-final friendGuestbookProvider =
-    FutureProvider.family<Map<String, dynamic>, String>((ref, username) {
+final friendGuestbookProvider = FutureProvider.autoDispose
+    .family<Map<String, dynamic>, String>((ref, username) {
   return GuestbookRepository().getFriendGuestbook(username);
 });
 
@@ -34,20 +34,69 @@ class FriendGuestbookScreen extends ConsumerWidget {
           }
 
           return ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: 8),
             itemCount: entries.length,
             itemBuilder: (context, index) {
               final entry = entries[index] as Map<String, dynamic>;
               final writer = entry['writer'] as Map<String, dynamic>;
+              final createdAt = entry['createdAt'] as String;
+              final dateStr = createdAt.length >= 10
+                  ? createdAt.substring(0, 10)
+                  : createdAt;
 
-              return ListTile(
-                leading: ProfileAvatar(
-                  nickname: writer['nickname'] as String,
-                  imageUrl: writer['profileImageUrl'] as String?,
-                  radius: 20,
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                    width: 0.5,
+                  ),
                 ),
-                title: Text(entry['content'] as String),
-                subtitle: Text(
-                  '${writer['nickname']} · ${entry['createdAt']}',
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        entry['content'] as String,
+                        style: const TextStyle(fontSize: 15, height: 1.5),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          ProfileAvatar(
+                            nickname: writer['nickname'] as String,
+                            imageUrl: writer['profileImageUrl'] as String?,
+                            radius: 10,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            writer['nickname'] as String,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).colorScheme.outline,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(
+                            Icons.schedule,
+                            size: 13,
+                            color: Theme.of(context).colorScheme.outline,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            dateStr,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).colorScheme.outline,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               );
             },
