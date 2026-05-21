@@ -150,11 +150,10 @@ class _ReceivedGuestbookTab extends ConsumerWidget {
                                     writer?['profileImageUrl'] as String?,
                                 createdAt: entry['createdAt'] as String,
                                 showWriter: groupBy == 'date',
-                                entryId: entry['id'] as int, // 추가
-                                visibility: entry['visibility'] as String? ??
-                                    'private', // 추가
+                                entryId: entry['id'] as int,
+                                visibility:
+                                    entry['visibility'] as String? ?? 'private',
                                 onVisibilityToggle: () async {
-                                  // 추가
                                   final currentVisibility =
                                       entry['visibility'] as String? ??
                                           'private';
@@ -170,9 +169,42 @@ class _ReceivedGuestbookTab extends ConsumerWidget {
                                     );
                                     ref.invalidate(
                                         myGuestbookProvider(groupBy));
-                                  } catch (e) {
-                                    // 에러 처리 — ConsumerWidget이므로 context 사용 가능
-                                  }
+                                  } catch (_) {}
+                                },
+                                onDelete: () async {
+                                  final confirmed = await showDialog<bool>(
+                                    context: context,
+                                    builder: (dialogContext) => AlertDialog(
+                                      title: const Text('방명록 삭제'),
+                                      content: const Text(
+                                          '이 방명록을 삭제하시겠습니까?\n삭제 후 복구할 수 없습니다.'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(
+                                              dialogContext, false),
+                                          child: const Text('취소'),
+                                        ),
+                                        TextButton(
+                                          style: TextButton.styleFrom(
+                                            foregroundColor:
+                                                Theme.of(dialogContext)
+                                                    .colorScheme
+                                                    .error,
+                                          ),
+                                          onPressed: () => Navigator.pop(
+                                              dialogContext, true),
+                                          child: const Text('삭제'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (confirmed != true) return;
+                                  try {
+                                    await GuestbookRepository()
+                                        .deleteEntry(entry['id'] as int);
+                                    ref.invalidate(
+                                        myGuestbookProvider(groupBy));
+                                  } catch (_) {}
                                 },
                               );
                             }).toList(),
@@ -392,6 +424,7 @@ class _ReceivedEntryCard extends StatelessWidget {
   final int entryId;
   final String visibility;
   final VoidCallback onVisibilityToggle;
+  final VoidCallback onDelete;
 
   const _ReceivedEntryCard({
     required this.content,
@@ -399,6 +432,7 @@ class _ReceivedEntryCard extends StatelessWidget {
     required this.entryId,
     required this.visibility,
     required this.onVisibilityToggle,
+    required this.onDelete,
     this.writerNickname,
     this.writerProfileImageUrl,
     this.showWriter = false,
@@ -425,7 +459,6 @@ class _ReceivedEntryCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              // 추가 — 내용 + 자물쇠 아이콘을 한 줄에
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
@@ -444,6 +477,18 @@ class _ReceivedEntryCard extends StatelessWidget {
                   ),
                   tooltip: isPublic ? '친구에게 공개 중' : '비공개',
                   onPressed: onVisibilityToggle,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: Icon(
+                    Icons.delete_outline,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  tooltip: '삭제',
+                  onPressed: onDelete,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),

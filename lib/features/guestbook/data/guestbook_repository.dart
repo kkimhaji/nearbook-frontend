@@ -55,4 +55,8 @@ class GuestbookRepository {
     final response = await _dio.get('/guestbook/friend/$username');
     return Map<String, dynamic>.from(response.data as Map);
   }
+
+  Future<void> deleteEntry(int entryId) async {
+    await _dio.delete('/guestbook/entries/$entryId');
+  }
 }
