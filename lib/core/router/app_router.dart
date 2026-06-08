@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:nearbook_frontend/core/network/auth_interceptor.dart';
 import 'package:nearbook_frontend/features/friend/provider/friend_provider.dart';
 import 'package:nearbook_frontend/features/guestbook/provider/guestbook_provider.dart';
 import 'package:nearbook_frontend/features/profile/view/profile_screen.dart';
@@ -77,6 +78,7 @@ class _MainShellState extends ConsumerState<MainShell>
 
   @override
   void dispose() {
+    AuthInterceptor.onUnauthorized = null;
     WidgetsBinding.instance.removeObserver(this);
     SocketClient.disconnect();
     super.dispose();
@@ -88,6 +90,11 @@ class _MainShellState extends ConsumerState<MainShell>
       // 포그라운드 복귀 시 소켓 연결 확인
       if (!SocketClient.isConnected) {
         _initSocket();
+
+        // 401 발생 시 authProvider를 통해 로그아웃 처리
+        AuthInterceptor.onUnauthorized = () async {
+          await ref.read(authProvider.notifier).logout();
+        };
       }
     }
   }

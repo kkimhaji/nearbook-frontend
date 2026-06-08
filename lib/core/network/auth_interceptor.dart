@@ -2,6 +2,9 @@ import 'package:dio/dio.dart';
 import '../storage/secure_storage.dart';
 
 class AuthInterceptor extends Interceptor {
+  // 401 발생 시 호출할 콜백 — app_router.dart에서 주입
+  static Future<void> Function()? onUnauthorized;
+
   @override
   Future<void> onRequest(
     RequestOptions options,
@@ -23,6 +26,20 @@ class AuthInterceptor extends Interceptor {
         DioException(
           requestOptions: err.requestOptions,
           error: '서버에 연결할 수 없습니다.',
+        ),
+      );
+      return;
+    }
+
+    // 401 감지 시 토큰 삭제 후 로그아웃 콜백 호출
+    if (response.statusCode == 401) {
+      SecureStorage.deleteToken();
+      onUnauthorized?.call();
+      handler.reject(
+        DioException(
+          requestOptions: err.requestOptions,
+          response: response,
+          error: '로그인이 필요합니다.',
         ),
       );
       return;
