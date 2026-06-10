@@ -31,32 +31,33 @@ class AuthInterceptor extends Interceptor {
       return;
     }
 
-final path = err.requestOptions.path;
-  final isAuthEndpoint = path.contains('/auth/');
+    final path = err.requestOptions.path;
+    final isAuthEndpoint = path.contains('/auth/');
 
-  if (response.statusCode == 401 && !isAuthEndpoint) {
-    SecureStorage.deleteToken();
-    onUnauthorized?.call();
+    if (response.statusCode == 401 && !isAuthEndpoint) {
+      SecureStorage.deleteToken();
+      onUnauthorized?.call();
+      handler.reject(
+        DioException(
+          requestOptions: err.requestOptions,
+          response: response,
+          error: '로그인이 필요합니다.',
+        ),
+      );
+      return;
+    }
+
+    // 인증 엔드포인트 401 포함 일반 에러 — 서버 메시지 그대로 전달
+    final message = response.data is Map
+        ? response.data['message'] as String? ?? '알 수 없는 오류가 발생했습니다.'
+        : '알 수 없는 오류가 발생했습니다.';
+
     handler.reject(
       DioException(
         requestOptions: err.requestOptions,
         response: response,
-        error: '로그인이 필요합니다.',
+        error: message,
       ),
     );
-    return;
   }
-
-  // 인증 엔드포인트 401 포함 일반 에러 — 서버 메시지 그대로 전달
-  final message = response.data is Map
-      ? response.data['message'] as String? ?? '알 수 없는 오류가 발생했습니다.'
-      : '알 수 없는 오류가 발생했습니다.';
-
-  handler.reject(
-    DioException(
-      requestOptions: err.requestOptions,
-      response: response,
-      error: message,
-    ),
-  );
 }
