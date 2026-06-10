@@ -18,7 +18,12 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
   Timer? _tokenRefreshTimer;
   StreamSubscription? _scanResultsSub;
   StreamSubscription? _isScanningSSub;
+
+  // 세션 내 감지된 토큰 전체 (중복 전송 방지용)
   final Set<String> _detectedTokens = {};
+
+  // userId → UserModel 누적 맵 (교체 대신 merge에 사용)
+  final Map<String, UserModel> _nearbyUserMap = {};
 
   Future<void> initBleToken() async {
     debugPrint('[BLE][Token] BLE 토큰 초기화 시작');
@@ -71,20 +76,19 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
     }
 
     if (!mounted) return;
+
+    // 스캔 시작 시 누적 데이터 초기화
     state = state.copyWith(isScanning: true, nearbyUsers: []);
     _detectedTokens.clear();
+    _nearbyUserMap.clear();
 
     await Future.delayed(const Duration(milliseconds: 500));
 
-    // 플랫폼별 스캔 전략
-    // Android: withServices 필터 사용 (정상 동작)
-    // iOS: 필터 없이 전체 스캔 후 regex로 토큰 식별
     final isIOS = Platform.isIOS;
     debugPrint(
         '[BLE][Scan] 스캔 시작 (${isIOS ? "iOS: 필터 없음" : "Android: serviceUUID 필터"})');
 
     await FlutterBluePlus.startScan(
-      // withServices: isIOS ? [] : [Guid(kBleServiceUuid)],
       timeout: const Duration(seconds: 15),
       androidScanMode: AndroidScanMode.lowLatency,
     );
@@ -97,7 +101,7 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
 
     _isScanningSSub = FlutterBluePlus.isScanning.listen((scanning) {
       debugPrint('[BLE][Scan] 스캔 상태: $scanning');
-      if (!mounted) return; // StateNotifier mounted 체크
+      if (!mounted) return;
       if (!scanning) {
         state = state.copyWith(isScanning: false);
         debugPrint('[BLE][Scan] 완료. 감지 토큰: $_detectedTokens');
@@ -113,7 +117,8 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
     await BlePeripheralService.stopAdvertising();
     _tokenRefreshTimer?.cancel();
     _detectedTokens.clear();
-    if (mounted) state = state.copyWith(isScanning: false);
+    _nearbyUserMap.clear();
+    if (mounted) state = state.copyWith(isScanning: false, nearbyUsers: []);
   }
 
   void _onScanResult(List<ScanResult> results) {
@@ -125,7 +130,6 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
       String? token;
 
       // 1순위: serviceUUID에서 token 추출
-      // Primary Advertisement 패킷에 포함 → iOS/Android 모두 안정적
       for (final uuid in result.advertisementData.serviceUuids) {
         final uuidStr = uuid.toString().toLowerCase();
         final extracted = BlePeripheralService.uuidToToken(uuidStr);
@@ -153,19 +157,29 @@ class NearbyNotifier extends StateNotifier<NearbyState> {
     }
 
     if (newTokens.isNotEmpty) {
-      debugPrint('[BLE][Socket] 서버로 토큰 전송: $newTokens');
+      // 새 토큰이 생길 때마다 세션 내 전체 감지 토큰을 전송
+      // → 서버가 현재 가시적인 유저 전체를 응답하므로 누락 없이 merge 가능
+      final allTokens = _detectedTokens.toList();
+      debugPrint('[BLE][Socket] 서버로 전체 감지 토큰 전송: $allTokens');
       SocketClient.instance?.emit(
         SocketEvents.bleDetected,
-        {'deviceTokens': newTokens},
+        {'deviceTokens': allTokens},
       );
     }
   }
 
+  /// 서버 응답 유저 목록을 기존 목록에 merge (교체하지 않음)
   void updateNearbyUsers(List<UserModel> users) {
     if (!mounted) return;
+
+    for (final user in users) {
+      _nearbyUserMap[user.id] = user;
+    }
+
+    final merged = _nearbyUserMap.values.toList();
     debugPrint(
-        '[NearbyNotifier] 유저 목록 업데이트: ${users.map((u) => u.username).toList()}');
-    state = state.copyWith(nearbyUsers: users);
+        '[NearbyNotifier] 유저 목록 merge: ${merged.map((u) => u.username).toList()}');
+    state = state.copyWith(nearbyUsers: merged);
   }
 
   @override
