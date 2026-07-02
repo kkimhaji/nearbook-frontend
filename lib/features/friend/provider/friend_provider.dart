@@ -35,7 +35,9 @@ class FriendNotifier extends StateNotifier<FriendState> {
 
   void _listenSocketEvents() {
     SocketClient.instance
-      ?..on(SocketEvents.friendRequestReceived, (_) => refresh())
+      ?..off(SocketEvents.friendRequestReceived)
+      ..off(SocketEvents.friendRequestAccepted)
+      ..on(SocketEvents.friendRequestReceived, (_) => refresh())
       ..on(SocketEvents.friendRequestAccepted, (_) => refresh());
   }
 
@@ -53,10 +55,8 @@ class FriendNotifier extends StateNotifier<FriendState> {
       ]);
 
       state = state.copyWith(
-        friends: (results[0] as List<Map<String, dynamic>>)
-            .map((f) => FriendModel.fromJson(f))
-            .toList(),
-        receivedRequests: results[1] as List<Map<String, dynamic>>,
+        friends: (results[0]).map((f) => FriendModel.fromJson(f)).toList(),
+        receivedRequests: results[1],
         isLoading: false,
       );
     } catch (_) {
