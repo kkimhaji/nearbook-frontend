@@ -73,6 +73,9 @@ class _MainShellState extends ConsumerState<MainShell>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    AuthInterceptor.onUnauthorized = () async {
+      await ref.read(authProvider.notifier).logout();
+    };
     _initSocket();
   }
 
