@@ -11,6 +11,11 @@ class SocketClient {
     final token = await SecureStorage.getToken();
     if (token == null) return;
 
+    if (_socket != null) {
+      _socket!.dispose();
+      _socket = null;
+    }
+
     _socket = io.io(
       ApiConstants.socketUrl,
       io.OptionBuilder()
@@ -21,6 +26,7 @@ class SocketClient {
           .setReconnectionAttempts(10) // 최대 재시도 횟수
           .setReconnectionDelay(2000) // 재시도 간격 2초
           .setReconnectionDelayMax(10000) // 최대 대기 10초
+          .enableForceNew()
           .build(),
     );
 
@@ -28,7 +34,7 @@ class SocketClient {
   }
 
   static void disconnect() {
-    _socket?.disconnect();
+    _socket?.dispose();
     _socket = null;
   }
 
