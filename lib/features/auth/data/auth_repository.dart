@@ -17,7 +17,7 @@ class AuthRepository {
       'email': email,
       'password': password,
     });
-    await SecureStorage.saveToken(response.data['accessToken'] as String);
+    await _saveTokens(response.data as Map<String, dynamic>);
   }
 
   Future<void> login({
@@ -28,14 +28,24 @@ class AuthRepository {
       'username': username,
       'password': password,
     });
-    await SecureStorage.saveToken(response.data['accessToken'] as String);
+    await _saveTokens(response.data as Map<String, dynamic>);
   }
 
   Future<void> logout() async {
-    await SecureStorage.deleteToken();
+    try {
+      await _dio.post('/auth/logout');
+    } catch (_) {
+      // 서버 요청이 실패해도 로컬 토큰은 반드시 제거
+    }
+    await SecureStorage.clearAll();
   }
 
   Future<void> forgotPassword(String email) async {
     await _dio.post('/auth/forgot-password', data: {'email': email});
+  }
+
+  Future<void> _saveTokens(Map<String, dynamic> data) async {
+    await SecureStorage.saveToken(data['accessToken'] as String);
+    await SecureStorage.saveRefreshToken(data['refreshToken'] as String);
   }
 }

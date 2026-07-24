@@ -1,9 +1,19 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
+import '../constants/api_constants.dart';
 import '../storage/secure_storage.dart';
 
 class AuthInterceptor extends Interceptor {
-  // 401 발생 시 호출할 콜백 — app_router.dart에서 주입
   static Future<void> Function()? onUnauthorized;
+
+  static Completer<bool>? _refreshCompleter;
+
+  static final Dio _refreshDio = Dio(
+    BaseOptions(
+      baseUrl: ApiConstants.baseUrl,
+      headers: {'Content-Type': 'application/json'},
+    ),
+  );
 
   @override
   Future<void> onRequest(
@@ -18,7 +28,10 @@ class AuthInterceptor extends Interceptor {
   }
 
   @override
-  void onError(DioException err, ErrorInterceptorHandler handler) {
+  Future<void> onError(
+    DioException err,
+    ErrorInterceptorHandler handler,
+  ) async {
     final response = err.response;
 
     if (response == null) {
@@ -35,7 +48,19 @@ class AuthInterceptor extends Interceptor {
     final isAuthEndpoint = path.contains('/auth/');
 
     if (response.statusCode == 401 && !isAuthEndpoint) {
-      SecureStorage.deleteToken();
+      final refreshed = await _refreshAccessToken();
+
+      if (refreshed) {
+        try {
+          final retryResponse = await _retry(err.requestOptions);
+          handler.resolve(retryResponse);
+          return;
+        } catch (_) {
+          // 재시도 자체가 실패하면 아래 401 처리로 진행
+        }
+      }
+
+      await SecureStorage.clearAll();
       onUnauthorized?.call();
       handler.reject(
         DioException(
@@ -59,5 +84,49 @@ class AuthInterceptor extends Interceptor {
         error: message,
       ),
     );
+  }
+
+  Future<bool> _refreshAccessToken() async {
+    if (_refreshCompleter != null) {
+      return _refreshCompleter!.future;
+    }
+
+    _refreshCompleter = Completer<bool>();
+
+    try {
+      final refreshToken = await SecureStorage.getRefreshToken();
+      if (refreshToken == null) {
+        _refreshCompleter!.complete(false);
+        return false;
+      }
+
+      final response = await _refreshDio.post(
+        '/auth/refresh',
+        data: {'refreshToken': refreshToken},
+      );
+
+      final data = response.data as Map<String, dynamic>;
+      await SecureStorage.saveToken(data['accessToken'] as String);
+      await SecureStorage.saveRefreshToken(data['refreshToken'] as String);
+
+      _refreshCompleter!.complete(true);
+      return true;
+    } catch (_) {
+      _refreshCompleter!.complete(false);
+      return false;
+    } finally {
+      _refreshCompleter = null;
+    }
+  }
+
+  Future<Response<dynamic>> _retry(RequestOptions requestOptions) async {
+    final token = await SecureStorage.getToken();
+    final retryOptions = requestOptions.copyWith(
+      headers: {
+        ...requestOptions.headers,
+        'Authorization': 'Bearer $token',
+      },
+    );
+    return _refreshDio.fetch(retryOptions);
   }
 }
